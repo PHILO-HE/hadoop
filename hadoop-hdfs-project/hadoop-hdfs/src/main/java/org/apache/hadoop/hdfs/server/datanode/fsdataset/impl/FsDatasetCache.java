@@ -23,9 +23,11 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -34,6 +36,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -42,6 +45,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -53,6 +57,8 @@ import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.io.nativeio.NativeIO.POSIX.Pmem;
+import org.apache.hadoop.io.nativeio.NativeIO.POSIX.PmemMappedRegion;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -223,9 +229,98 @@ public class FsDatasetCache {
   }
 
   /**
+   * Manage the non-volatile storage class memory cache volumes.
+   *
+   * // TODO: Refine persistent location considering storage utilization
+   */
+  public static class PmemVolumeManager {
+    private final ArrayList<String> pmemVolumes = new ArrayList<String>();
+    // It's not a strict atomic operation for the performance sake.
+    private int index = 0;
+    private int count = 0;
+
+    public void load(String[] volumes) throws IOException {
+      // Check does the directory exist
+      for (String location: volumes) {
+        try {
+          File locFile = new File(location);
+          verifyIfValidPmemVolume(locFile);
+          // Remove all files under the volume. Files may been left after a
+          // unexpected data node restart.
+          FileUtils.cleanDirectory(locFile);
+        } catch (IllegalArgumentException e) {
+          LOG.error("Fail to parse persistent memory location " + location +
+              " for " + e.getMessage());
+          throw new IOException(e);
+        }
+        pmemVolumes.add(location);
+        LOG.info("Added persistent memory - " + location);
+      }
+      count = pmemVolumes.size();
+    }
+
+    public static void verifyIfValidPmemVolume(File pmemDir)
+        throws IOException {
+      if (!pmemDir.exists()) {
+        final String message = pmemDir + " does not exist";
+        throw new IOException(message);
+      }
+
+      if (!pmemDir.isDirectory()) {
+        final String message = pmemDir + " is not a directory";
+        throw new IllegalArgumentException(message);
+      }
+
+      String uuidStr = UUID.randomUUID().toString();
+      String testFile = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
+      byte[] contents = uuidStr.getBytes("UTF-8");
+      PmemMappedRegion region = null;
+      try {
+        region = Pmem.mapBlock(testFile, contents.length);
+        if (region == null) {
+          throw new IOException("Fail to map into persistent storage.");
+        }
+        Pmem.memCopy(contents, region.getAddress(), region.isPmem(),
+            contents.length);
+        Pmem.memSync(region);
+      } catch (Throwable t) {
+        throw new IOException(t);
+      } finally {
+        if (region != null) {
+          Pmem.unmapBlock(region.getAddress(), region.getLength());
+          boolean deled = false;
+          String reason = null;
+          try {
+            deled = new File(testFile).delete();
+          } catch (Throwable t) {
+            reason = t.getMessage();
+          }
+          if (!deled) {
+            LOG.warn("Failed to delete persistent memory test file " +
+                testFile + (reason == null ? "" : " due to: " + reason));
+          }
+        }
+      }
+    }
+
+    /**
+     * Choose a persistent location based on specific algorithms.
+     * Currently it is a round-robin policy.
+     */
+    public String getOneLocation() {
+      if (count != 0) {
+        return pmemVolumes.get(index++ % count);
+      } else {
+        throw new RuntimeException("No usable persistent memory are found");
+      }
+    }
+  }
+  /**
    * The total cache capacity in bytes.
    */
   private final long maxBytes;
+
+  private PmemVolumeManager pmemManager;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -236,7 +331,7 @@ public class FsDatasetCache {
    */
   final AtomicLong numBlocksFailedToUncache = new AtomicLong(0);
 
-  public FsDatasetCache(FsDatasetImpl dataset) {
+  public FsDatasetCache(FsDatasetImpl dataset) throws IOException {
     this.dataset = dataset;
     this.maxBytes = dataset.datanode.getDnConf().getMaxLockedMemory();
     ThreadFactory workerFactory = new ThreadFactoryBuilder()
@@ -268,6 +363,18 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
+
+    String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
+    if (pmemVolumes != null && pmemVolumes.length != 0) {
+      if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
+        throw new IOException("Persistent memory storage configured, " +
+            "but not available (" + NativeIO.POSIX.PMDK_SUPPORT_STATE + ").");
+      }
+      this.pmemManager = new PmemVolumeManager();
+      this.pmemManager.load(pmemVolumes);
+      PmemMappedBlock.setPersistentMemoryManager(this.pmemManager);
+      PmemMappedBlock.setDataset(dataset);
+    }
   }
 
   /**
@@ -420,7 +527,8 @@ public class FsDatasetCache {
     private final long length;
     private final long genstamp;
 
-    CachingTask(ExtendedBlockId key, String blockFileName, long length, long genstamp) {
+    CachingTask(ExtendedBlockId key, String blockFileName, long length,
+        long genstamp) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
@@ -461,8 +569,15 @@ public class FsDatasetCache {
           return;
         }
         try {
-          mappableBlock = MappableBlock.
-              load(length, blockIn, metaIn, blockFileName);
+          // Currently user can only choose either memory or persistent memory
+          // to cache the data.
+          if (pmemManager == null) {
+            mappableBlock = MemoryMappedBlock.load(length, blockIn, metaIn,
+                blockFileName, key);
+          } else {
+            mappableBlock = PmemMappedBlock.load(length, blockIn, metaIn,
+                blockFileName, key);
+          }
         } catch (ChecksumException e) {
           // Exception message is bogus since this wasn't caused by a file read
           LOG.warn("Failed to cache " + key + ": checksum verification failed.");
@@ -482,6 +597,7 @@ public class FsDatasetCache {
             return;
           }
           mappableBlockMap.put(key, new Value(mappableBlock, State.CACHED));
+          mappableBlock.afterCache();
         }
         LOG.debug("Successfully cached {}.  We are now caching {} bytes in"
             + " total.", key, newUsedBytes);
@@ -498,9 +614,7 @@ public class FsDatasetCache {
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
                   + "bytes in total.", key, usedBytesCount.get());
-          if (mappableBlock != null) {
-            mappableBlock.close();
-          }
+          IOUtils.closeQuietly(mappableBlock);
           numBlocksFailedToCache.incrementAndGet();
 
           synchronized (FsDatasetCache.this) {
@@ -618,5 +732,10 @@ public class FsDatasetCache {
     ExtendedBlockId block = new ExtendedBlockId(blockId, bpid);
     Value val = mappableBlockMap.get(block);
     return (val != null) && val.state.shouldAdvertise();
+  }
+
+  @VisibleForTesting
+  public PmemVolumeManager getPmemManager() {
+    return pmemManager;
   }
 }
