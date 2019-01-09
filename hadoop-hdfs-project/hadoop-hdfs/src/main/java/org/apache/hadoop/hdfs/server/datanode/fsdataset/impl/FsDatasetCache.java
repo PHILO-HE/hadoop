@@ -288,14 +288,14 @@ public class FsDatasetCache {
       } finally {
         if (region != null) {
           Pmem.unmapBlock(region.getAddress(), region.getLength());
-          boolean deled = false;
+          boolean deleted = false;
           String reason = null;
           try {
-            deled = new File(testFile).delete();
+            deleted = new File(testFile).delete();
           } catch (Throwable t) {
             reason = t.getMessage();
           }
-          if (!deled) {
+          if (!deleted) {
             LOG.warn("Failed to delete persistent memory test file " +
                 testFile + (reason == null ? "" : " due to: " + reason));
           }

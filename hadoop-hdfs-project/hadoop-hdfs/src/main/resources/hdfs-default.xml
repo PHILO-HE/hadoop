@@ -2544,6 +2544,15 @@
 </property>
 
 <property>
+  <name>dfs.datanode.cache.pmem.dirs</name>
+  <value></value>
+  <description>
+    This value specifies the directory of persistent memory.
+    Multiple directories are supported. Please separate them by ",".
+  </description>
+</property>
+
+<property>
   <name>dfs.namenode.list.cache.directives.num.responses</name>
   <value>100</value>
   <description>
