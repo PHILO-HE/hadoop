@@ -105,7 +105,7 @@ public class TestFsDatasetCache {
   // rounding, use the OS page size for the block size.
   private static final long PAGE_SIZE =
       NativeIO.POSIX.getCacheManipulator().getOperatingSystemPageSize();
-  private static final long BLOCK_SIZE = PAGE_SIZE;
+  static final long BLOCK_SIZE = PAGE_SIZE;
 
   private static Configuration conf;
   private static MiniDFSCluster cluster = null;
@@ -149,8 +149,19 @@ public class TestFsDatasetCache {
     DataNodeFaultInjector.set(oldInjector);
   }
 
+  protected void postSetupConf(Configuration config) {
+  }
+
+  protected boolean skipPmemCacheTest() {
+    return false;
+  }
+
   @Before
   public void setUp() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
+
     conf = new HdfsConfiguration();
     conf.setLong(
         DFSConfigKeys.DFS_NAMENODE_PATH_BASED_CACHE_REFRESH_INTERVAL_MS, 100);
@@ -160,6 +171,7 @@ public class TestFsDatasetCache {
         CACHE_CAPACITY);
     conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1);
     conf.setInt(DFS_DATANODE_FSDATASETCACHE_MAX_THREADS_PER_VOLUME_KEY, 10);
+    postSetupConf(conf);
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());
@@ -177,8 +189,22 @@ public class TestFsDatasetCache {
     spyNN = InternalDataNodeTestUtils.spyOnBposToNN(dn, nn);
   }
 
+  protected static MiniDFSCluster getCluster() {
+    return cluster;
+  }
+
+  protected static void shutdownCluster() {
+    if (cluster != null) {
+      cluster.shutdown();
+      cluster = null;
+    }
+  }
+
   @After
   public void tearDown() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     // Verify that each test uncached whatever it cached.  This cleanup is
     // required so that file descriptors are not leaked across tests.
     DFSTestUtil.verifyExpectedCacheUsage(0, 0, fsd);
@@ -186,10 +212,7 @@ public class TestFsDatasetCache {
       fs.close();
       fs = null;
     }
-    if (cluster != null) {
-      cluster.shutdown();
-      cluster = null;
-    }
+    shutdownCluster();
     // Restore the original CacheManipulator
     NativeIO.POSIX.setCacheManipulator(prevCacheManipulator);
   }
@@ -328,6 +351,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=600000)
   public void testCacheAndUncacheBlockSimple() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     testCacheAndUncacheBlock();
   }
 
@@ -337,6 +363,9 @@ public class TestFsDatasetCache {
    */
   @Test(timeout=600000)
   public void testCacheAndUncacheBlockWithRetries() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     // We don't have to save the previous cacheManipulator
     // because it will be reinstalled by the @After function.
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator() {
@@ -360,6 +389,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=600000)
   public void testFilesExceedMaxLockedMemory() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     LOG.info("beginning testFilesExceedMaxLockedMemory");
 
     // Create some test files that will exceed total cache capacity
@@ -423,6 +455,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=600000)
   public void testUncachingBlocksBeforeCachingFinishes() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     LOG.info("beginning testUncachingBlocksBeforeCachingFinishes");
     final int NUM_BLOCKS = 5;
 
@@ -477,6 +512,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=60000)
   public void testUncacheUnknownBlock() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     // Create a file
     Path fileName = new Path("/testUncacheUnknownBlock");
     int fileLen = 4096;
@@ -497,6 +535,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=600000)
   public void testPageRounder() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     // Write a small file
     Path fileName = new Path("/testPageRounder");
     final int smallBlocks = 512; // This should be smaller than the page size
@@ -520,6 +561,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=60000)
   public void testUncacheQuiesces() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     // Create a file
     Path fileName = new Path("/testUncacheQuiesces");
     int fileLen = 4096;
@@ -558,6 +602,9 @@ public class TestFsDatasetCache {
 
   @Test(timeout=60000)
   public void testReCacheAfterUncache() throws Exception {
+    if (skipPmemCacheTest()) {
+      return;
+    }
     final int TOTAL_BLOCKS_PER_CACHE =
         Ints.checkedCast(CACHE_CAPACITY / BLOCK_SIZE);
     BlockReaderTestUtil.enableHdfsCachingTracing();
