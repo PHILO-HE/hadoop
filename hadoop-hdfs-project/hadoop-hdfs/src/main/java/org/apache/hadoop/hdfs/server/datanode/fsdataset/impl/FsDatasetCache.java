@@ -366,9 +366,16 @@ public class FsDatasetCache {
 
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes != null && pmemVolumes.length != 0) {
-      if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
-        throw new IOException("Persistent memory storage configured, " +
-            "but not available (" + NativeIO.POSIX.PMDK_SUPPORT_STATE + ").");
+      if (!NativeIO.isAvailable()) {
+        throw new IOException("Native extensions are not available!");
+      }
+      if (!NativeIO.POSIX.isPmemAvailable()) {
+        if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
+          throw new IOException("The native code is built without PMDK support!");
+        }
+        if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
+          throw new IOException("PMDK dynamic library is NOT found!");
+        }
       }
       this.pmemManager = new PmemVolumeManager();
       this.pmemManager.load(pmemVolumes);
