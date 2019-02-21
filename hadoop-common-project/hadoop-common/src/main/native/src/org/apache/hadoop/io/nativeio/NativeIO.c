@@ -1591,7 +1591,7 @@ JNIEnv *env, jclass thisClass, jbyteArray buf, jlong address, jboolean is_pmem, 
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO
- * Method:    pmemSync
+ * Method:    pmemDrain
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_pmemDrain(

@@ -72,7 +72,7 @@ void load_pmdk_lib(char* err, size_t err_len) {
   }
   pmdkLoader = calloc(1, sizeof(PmdkLibLoader));
 
-  // Load Intel ISA-L
+  // Load PMDK library
   #ifdef UNIX
   pmdkLoader->libec = dlopen(HADOOP_PMDK_LIBRARY, RTLD_LAZY | RTLD_GLOBAL);
   if (pmdkLoader->libec == NULL) {

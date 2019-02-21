@@ -147,6 +147,7 @@ public class PmemMappedBlock implements MappableBlock {
       if (region == null) {
         throw new IOException("Fail to map the block to persistent storage.");
       }
+      // Copy the block data to pmem meanwhile verify the checksum
       verifyChecksum(region, length, metaIn, blockChannel, blockFileName);
       mappableBlock = new PmemMappedBlock(region.getAddress(),
           region.getLength(), filePath, key);
@@ -207,7 +208,7 @@ public class PmemMappedBlock implements MappableBlock {
         }
         blockBuf.flip();
         // Number of read chunks, including partial chunk at end
-        int chunks = (bytesRead+bytesPerChecksum - 1) / bytesPerChecksum;
+        int chunks = (bytesRead + bytesPerChecksum - 1) / bytesPerChecksum;
         checksumBuf.limit(chunks * checksumSize);
         fillBuffer(metaChannel, checksumBuf);
         checksumBuf.flip();

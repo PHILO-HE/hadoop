@@ -56,7 +56,14 @@ public interface MappableBlock extends Closeable {
     return null;
   }
 
+  /**
+   * Get the number of bytes that need to be cached.
+   * @return the number of bytes that need to be cached.
+   */
   long getLength();
 
+  /**
+   * Do something after a block is cached.
+   */
   void afterCache();
 }
