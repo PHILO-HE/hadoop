@@ -302,20 +302,20 @@ static void pmem_region_init(JNIEnv *env, jclass nativeio_class) {
   // Init Stat
   clazz = (*env)->FindClass(env, NATIVE_IO_POSIX_PMEMREGION_CLASS);
   if (!clazz) {
-    THROW(env, "java/io/IOException", "fail to get PmemMappedRegion class");
+    THROW(env, "java/io/IOException", "Failed to get PmemMappedRegion class");
     return; // exception has been raised
   }
 
   // Init PmemMappedRegion class
   pmem_region_clazz = (*env)->NewGlobalRef(env, clazz);
   if (!pmem_region_clazz) {
-    THROW(env, "java/io/IOException", "fail to new global reference of PmemMappedRegion class");
+    THROW(env, "java/io/IOException", "Failed to new global reference of PmemMappedRegion class");
     return; // exception has been raised
   }
 
   pmem_region_ctor = (*env)->GetMethodID(env, pmem_region_clazz, "<init>", "(JJZ)V");
   if (!pmem_region_ctor) {
-    THROW(env, "java/io/IOException", "fail to get PmemMappedRegion constructor");
+    THROW(env, "java/io/IOException", "Failed to get PmemMappedRegion constructor");
     return; // exception has been raised
   }
 }
@@ -1509,7 +1509,7 @@ JNIEnv *env, jclass thisClass, jstring filePath, jlong fileLength) {
         0666, &mapped_len, &is_pmem);
 
     if (!pmemaddr) {
-      snprintf(msg, sizeof(msg), "Fail to create pmem file. file: %s, length: %x, error msg: %s", path, fileLength, pmem_errormsg());
+      snprintf(msg, sizeof(msg), "Failed to create pmem file. file: %s, length: %x, error msg: %s", path, fileLength, pmem_errormsg());
       THROW(env, "java/io/IOException", msg);
       (*env)->ReleaseStringUTFChars(env, filePath, path);
       return NULL;
@@ -1552,7 +1552,7 @@ JNIEnv *env, jclass thisClass, jlong address, jlong length) {
     succeed = pmdkLoader->pmem_unmap(address, length);
     // succeed = -1 failure; succeed = 0 success
     if (succeed != 0) {
-      snprintf(msg, sizeof(msg), "Fail to unmap region. address: %x, length: %x, error msg: %s", address, length, pmem_errormsg());
+      snprintf(msg, sizeof(msg), "Failed to unmap region. address: %x, length: %x, error msg: %s", address, length, pmem_errormsg());
       THROW(env, "java/io/IOException", msg);
       return JNI_FALSE;
     } else {
@@ -1618,7 +1618,7 @@ JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_pm
     succeed = pmdkLoader->pmem_msync(address, length);
     // succeed = -1 failure
     if (succeed = -1) {
-      snprintf(msg, sizeof(msg), "Fail to msync region. address: %x, length: %x, error msg: %s", address, length, pmem_errormsg());
+      snprintf(msg, sizeof(msg), "Failed to msync region. address: %x, length: %x, error msg: %s", address, length, pmem_errormsg());
       THROW(env, "java/io/IOException", msg);
       return;
     }

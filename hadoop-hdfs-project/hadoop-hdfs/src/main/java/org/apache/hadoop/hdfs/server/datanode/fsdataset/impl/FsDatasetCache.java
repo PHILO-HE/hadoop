@@ -240,16 +240,16 @@ public class FsDatasetCache {
     private int count = 0;
 
     public void load(String[] volumes) throws IOException {
-      // Check does the directory exist
+      // Check whether the directory exists
       for (String location: volumes) {
         try {
           File locFile = new File(location);
           verifyIfValidPmemVolume(locFile);
-          // Remove all files under the volume. Files may been left after a
-          // unexpected data node restart.
+          // Remove all files under the volume. Files may be left after an
+          // unexpected datanode restart.
           FileUtils.cleanDirectory(locFile);
         } catch (IllegalArgumentException e) {
-          LOG.error("Fail to parse persistent memory location " + location +
+          LOG.error("Failed to parse persistent memory location " + location +
               " for " + e.getMessage());
           throw new IOException(e);
         }
@@ -278,7 +278,7 @@ public class FsDatasetCache {
       try {
         region = Pmem.mapBlock(testFile, contents.length);
         if (region == null) {
-          throw new IOException("Fail to map into persistent storage.");
+          throw new IOException("Failed to map into persistent storage.");
         }
         Pmem.memCopy(contents, region.getAddress(), region.isPmem(),
             contents.length);
@@ -320,7 +320,7 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
-  private PmemVolumeManager pmemManager;
+  private final PmemVolumeManager pmemManager;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -366,6 +366,7 @@ public class FsDatasetCache {
 
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes != null && pmemVolumes.length != 0) {
+      // Init for persistent memory
       if (!NativeIO.isAvailable()) {
         throw new IOException("Native extensions are not available!");
       }
@@ -381,6 +382,8 @@ public class FsDatasetCache {
       this.pmemManager.load(pmemVolumes);
       PmemMappedBlock.setPersistentMemoryManager(this.pmemManager);
       PmemMappedBlock.setDataset(dataset);
+    } else {
+      this.pmemManager = null;
     }
   }
 
