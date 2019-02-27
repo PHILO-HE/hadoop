@@ -39,7 +39,7 @@ import org.apache.hadoop.util.DataChecksum;
 import com.google.common.base.Preconditions;
 
 /**
- * Represents an HDFS block that is mmapped by the DataNode.
+ * Represents an HDFS block that is mapped to memory by the DataNode.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable

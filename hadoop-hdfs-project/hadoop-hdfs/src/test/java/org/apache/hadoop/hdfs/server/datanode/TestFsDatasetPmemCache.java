@@ -25,6 +25,8 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PmemVolumeManager;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockClassLoader;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.PmemCacheManager;
 import org.apache.hadoop.util.NativeCodeLoader;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
@@ -39,6 +41,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
+
 
 /**
  * Test HDFS cache using non-volatile storage class memory.
@@ -105,7 +109,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     myCluster.waitActive();
     DataNode dataNode = myCluster.getDataNodes().get(0);
     assertNull(((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
-        .getPmemManager());
+        .getMemManager());
     myCluster.shutdown();
 
     // One Pmem directory is set
@@ -114,8 +118,10 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
         .numDataNodes(1).build();
     myCluster.waitActive();
     dataNode = myCluster.getDataNodes().get(0);
-    assertNotNull(((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
-        .getPmemManager().getOneLocation());
+    MappableBlockClassLoader pmemCacheManager= ((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
+        .getMemManager();
+    assertTrue(pmemCacheManager instanceof PmemCacheManager);
+    assertNotNull(((PmemCacheManager)pmemCacheManager).getOneLocation());
     myCluster.shutdown();
 
     // Two Pmem directories are set
@@ -127,8 +133,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     // Test round-robin works
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      String location = ((FsDatasetImpl)dataNode.getFSDataset())
-          .getCacheManager().getPmemManager().getOneLocation();
+      String location = ((PmemCacheManager)pmemCacheManager).getOneLocation();
       if (location.startsWith(pmem0)) {
         count1++;
       } else if (location.startsWith(pmem1)) {

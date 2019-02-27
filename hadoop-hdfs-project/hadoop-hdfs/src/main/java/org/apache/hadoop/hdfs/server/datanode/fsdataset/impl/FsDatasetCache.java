@@ -31,6 +31,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -50,7 +52,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
@@ -320,7 +321,7 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
-  private final PmemVolumeManager pmemManager;
+  private final MappableBlockClassLoader memManager;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -378,12 +379,9 @@ public class FsDatasetCache {
           throw new IOException("PMDK dynamic library is NOT found!");
         }
       }
-      this.pmemManager = new PmemVolumeManager();
-      this.pmemManager.load(pmemVolumes);
-      PmemMappedBlock.setPersistentMemoryManager(this.pmemManager);
-      PmemMappedBlock.setDataset(dataset);
+      this.memManager = new PmemCacheManager(dataset, pmemVolumes);
     } else {
-      this.pmemManager = null;
+      this.memManager = new MemoryCacheManager();
     }
   }
 
@@ -581,20 +579,13 @@ public class FsDatasetCache {
         try {
           // Currently user can only choose either memory or persistent memory
           // to cache the data.
-          if (pmemManager == null) {
-            mappableBlock = MemoryMappedBlock.load(length, blockIn, metaIn,
-                blockFileName, key);
-          } else {
-            mappableBlock = PmemMappedBlock.load(length, blockIn, metaIn,
-                blockFileName, key);
-          }
-        } catch (ChecksumException e) {
-          // Exception message is bogus since this wasn't caused by a file read
-          LOG.warn("Failed to cache " + key + ": checksum verification failed.");
-          return;
-        } catch (IOException e) {
-          LOG.warn("Failed to cache " + key, e);
-          return;
+          Method loadMethod = memManager.loadMappableBlockClass().getMethod("load",
+              Long.TYPE, FileInputStream.class, FileInputStream.class, String.class, ExtendedBlockId.class);
+          mappableBlock = (MappableBlock) loadMethod.invoke(null, length, blockIn, metaIn,
+              blockFileName, key);
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+          LOG.error("Failed to cache the block [key=" + key + "]!", e);
+          throw new RuntimeException(e);
         }
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
@@ -745,7 +736,7 @@ public class FsDatasetCache {
   }
 
   @VisibleForTesting
-  public PmemVolumeManager getPmemManager() {
-    return pmemManager;
+  public MappableBlockClassLoader getMemManager() {
+    return memManager;
   }
 }

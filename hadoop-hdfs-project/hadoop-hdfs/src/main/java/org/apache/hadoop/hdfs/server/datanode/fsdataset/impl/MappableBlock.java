@@ -27,12 +27,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 /**
- * Represents an HDFS block that is mmapped by the DataNode.
+ * Represents an HDFS block that is mapped by the DataNode.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public interface MappableBlock extends Closeable {
-
 
   /**
    * Load the block.

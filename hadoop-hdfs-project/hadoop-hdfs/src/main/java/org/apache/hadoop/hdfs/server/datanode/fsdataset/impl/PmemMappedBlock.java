@@ -44,14 +44,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 /**
- * Represents an HDFS block that is mmapped by the DataNode.
+ * Represents an HDFS block that is mapped to persistent memory by the DataNode.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class PmemMappedBlock implements MappableBlock {
   private static final Logger LOG = LoggerFactory.getLogger(FsDatasetCache
       .class);
-  private static PmemVolumeManager pmemManager;
+  private static PmemCacheManager pmemManager;
   private static FsDatasetImpl dataset;
 
   private long pmemMappedAddres = -1L;
@@ -74,7 +74,7 @@ public class PmemMappedBlock implements MappableBlock {
     return length;
   }
 
-  public static void setPersistentMemoryManager(PmemVolumeManager manager) {
+  public static void setPersistentMemoryManager(PmemCacheManager manager) {
     pmemManager = manager;
   }
 
