@@ -98,7 +98,7 @@ public class MemoryMappedBlock implements MappableBlock {
         }
       }
     }
-    return (MappableBlock) mappableBlock;
+    return mappableBlock;
   }
 
   /**

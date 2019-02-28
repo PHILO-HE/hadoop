@@ -48,9 +48,8 @@ public class PmemCacheManager implements MappableBlockClassLoader {
   private int count = 0;
   private Class clazz;
 
-  public PmemCacheManager(FsDatasetImpl dataset, String[] pmemVolumes) throws IOException {
+  public PmemCacheManager(String[] pmemVolumes) throws IOException {
     PmemMappedBlock.setPersistentMemoryManager(this);
-    PmemMappedBlock.setDataset(dataset);
     this.load(pmemVolumes);
   }
 

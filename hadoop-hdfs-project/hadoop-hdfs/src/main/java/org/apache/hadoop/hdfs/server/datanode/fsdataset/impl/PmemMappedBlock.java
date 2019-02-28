@@ -97,22 +97,10 @@ public class PmemMappedBlock implements MappableBlock {
     }
   }
 
-  public void afterUncache() {
-    try {
-      ReplicaInfo replica = dataset.getBlockReplica(key.getBlockPoolId(),
-          key.getBlockId());
-      replica.setCachePath(null);
-    } catch (IOException e) {
-      LOG.warn("Fail to find the replica file of PoolID = " +
-          key.getBlockPoolId() + ", BlockID = " + key.getBlockId() +
-          " for :" + e.getMessage());
-    }
-  }
-
   /**
    * Load the block.
    *
-   * mmap and mlock the block, and then verify its checksum.
+   * Map the block and verify its checksum.
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream.  Should be positioned at the
@@ -146,7 +134,6 @@ public class PmemMappedBlock implements MappableBlock {
       if (region == null) {
         throw new IOException("Fail to map the block to persistent storage.");
       }
-      // Copy the block data to pmem meanwhile verify the checksum
       verifyChecksum(region, length, metaIn, blockChannel, blockFileName);
       mappableBlock = new PmemMappedBlock(region.getAddress(),
           region.getLength(), filePath, key);
@@ -168,7 +155,8 @@ public class PmemMappedBlock implements MappableBlock {
   }
 
   /**
-   * Verifies the block's checksum. This is an I/O intensive operation.
+   * Verifies the block's checksum meanwhile copy the block data to pmem.
+   * This is an I/O intensive operation.
    */
   private static void verifyChecksum(PmemMappedRegion region, long length,
       FileInputStream metaIn, FileChannel blockChannel, String blockFileName)

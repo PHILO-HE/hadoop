@@ -287,7 +287,8 @@ public class FsDatasetCache {
           throw new IOException("PMDK dynamic library is NOT found!");
         }
       }
-      this.memManager = new PmemCacheManager(dataset, pmemVolumes);
+      this.memManager = new PmemCacheManager(pmemVolumes);
+      PmemMappedBlock.setDataset(dataset);
     } else {
       this.memManager = new MemoryCacheManager();
     }
