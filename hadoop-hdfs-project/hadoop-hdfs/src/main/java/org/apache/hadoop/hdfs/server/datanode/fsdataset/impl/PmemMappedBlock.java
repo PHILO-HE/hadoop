@@ -29,7 +29,6 @@ import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIO.POSIX.PmemMappedRegion;
 import org.apache.hadoop.util.DataChecksum;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PmemVolumeManager;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PageRounder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

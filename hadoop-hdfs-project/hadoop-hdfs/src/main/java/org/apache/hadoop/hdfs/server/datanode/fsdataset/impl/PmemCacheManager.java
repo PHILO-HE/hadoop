@@ -31,7 +31,9 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Manages for persistent memory caching.
+ * Manage the non-volatile storage class memory cache volumes.
+ *
+ * TODO: Refine persistent location considering storage utilization
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable

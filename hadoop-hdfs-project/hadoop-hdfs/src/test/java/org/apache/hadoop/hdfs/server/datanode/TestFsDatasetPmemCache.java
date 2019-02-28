@@ -23,7 +23,6 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PmemVolumeManager;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockClassLoader;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.PmemCacheManager;
@@ -75,7 +74,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     // Test if Pmem cache enabled
     skipPmemCacheTest = false;
     try {
-      PmemVolumeManager.verifyIfValidPmemVolume(new File(PMEM_DIR));
+      PmemCacheManager.verifyIfValidPmemVolume(new File(PMEM_DIR));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -91,8 +90,8 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     String pmem0 = "/mnt/pmem0";
     String pmem1 = "/mnt/pmem1";
     try {
-      PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem0));
-      PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem1));
+      PmemCacheManager.verifyIfValidPmemVolume(new File(pmem0));
+      PmemCacheManager.verifyIfValidPmemVolume(new File(pmem1));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());

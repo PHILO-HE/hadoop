@@ -27,7 +27,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -38,7 +37,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -47,7 +45,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -58,8 +55,6 @@ import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
 import org.apache.hadoop.io.nativeio.NativeIO;
-import org.apache.hadoop.io.nativeio.NativeIO.POSIX.Pmem;
-import org.apache.hadoop.io.nativeio.NativeIO.POSIX.PmemMappedRegion;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -229,93 +224,6 @@ public class FsDatasetCache {
     }
   }
 
-  /**
-   * Manage the non-volatile storage class memory cache volumes.
-   *
-   * // TODO: Refine persistent location considering storage utilization
-   */
-  public static class PmemVolumeManager {
-    private final ArrayList<String> pmemVolumes = new ArrayList<String>();
-    // It's not a strict atomic operation for the performance sake.
-    private int index = 0;
-    private int count = 0;
-
-    public void load(String[] volumes) throws IOException {
-      // Check whether the directory exists
-      for (String location: volumes) {
-        try {
-          File locFile = new File(location);
-          verifyIfValidPmemVolume(locFile);
-          // Remove all files under the volume. Files may be left after an
-          // unexpected datanode restart.
-          FileUtils.cleanDirectory(locFile);
-        } catch (IllegalArgumentException e) {
-          LOG.error("Failed to parse persistent memory location " + location +
-              " for " + e.getMessage());
-          throw new IOException(e);
-        }
-        pmemVolumes.add(location);
-        LOG.info("Added persistent memory - " + location);
-      }
-      count = pmemVolumes.size();
-    }
-
-    public static void verifyIfValidPmemVolume(File pmemDir)
-        throws IOException {
-      if (!pmemDir.exists()) {
-        final String message = pmemDir + " does not exist";
-        throw new IOException(message);
-      }
-
-      if (!pmemDir.isDirectory()) {
-        final String message = pmemDir + " is not a directory";
-        throw new IllegalArgumentException(message);
-      }
-
-      String uuidStr = UUID.randomUUID().toString();
-      String testFile = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
-      byte[] contents = uuidStr.getBytes("UTF-8");
-      PmemMappedRegion region = null;
-      try {
-        region = Pmem.mapBlock(testFile, contents.length);
-        if (region == null) {
-          throw new IOException("Failed to map into persistent storage.");
-        }
-        Pmem.memCopy(contents, region.getAddress(), region.isPmem(),
-            contents.length);
-        Pmem.memSync(region);
-      } catch (Throwable t) {
-        throw new IOException(t);
-      } finally {
-        if (region != null) {
-          Pmem.unmapBlock(region.getAddress(), region.getLength());
-          boolean deleted = false;
-          String reason = null;
-          try {
-            deleted = new File(testFile).delete();
-          } catch (Throwable t) {
-            reason = t.getMessage();
-          }
-          if (!deleted) {
-            LOG.warn("Failed to delete persistent memory test file " +
-                testFile + (reason == null ? "" : " due to: " + reason));
-          }
-        }
-      }
-    }
-
-    /**
-     * Choose a persistent location based on specific algorithms.
-     * Currently it is a round-robin policy.
-     */
-    public String getOneLocation() {
-      if (count != 0) {
-        return pmemVolumes.get(index++ % count);
-      } else {
-        throw new RuntimeException("No usable persistent memory are found");
-      }
-    }
-  }
   /**
    * The total cache capacity in bytes.
    */
