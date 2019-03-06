@@ -32,6 +32,8 @@ Centralized cache management in HDFS has many significant advantages.
 
 4.  Centralized caching can improve overall cluster memory utilization. When relying on the OS buffer cache at each DataNode, repeated reads of a block will result in all *n* replicas of the block being pulled into buffer cache. With centralized cache management, a user can explicitly pin only *m* of the *n* replicas, saving *n-m* memory.
 
+5.  HDFS supports non-volatile storage class memory(SCM) cache in Linux platform. DataNode can enable either memory cache or SCM cache. Memory cache and SCM cache can coexist in a cluster. In the current implementation, the cache data will be cleaned after DataNode restarts. Supporting persistent HDFS cache will be implemented in the future.
+
 Use Cases
 ---------
 
@@ -215,6 +217,10 @@ Be sure to configure the following:
 #### Optional
 
 The following properties are not required, but may be specified for tuning:
+
+*   dfs.datanode.cache.pmem.dirs
+
+    This property specifies the cache directory on SCM. For multiply directories, they should be separated with “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty.
 
 *   dfs.namenode.path.based.cache.refresh.interval.ms
 
