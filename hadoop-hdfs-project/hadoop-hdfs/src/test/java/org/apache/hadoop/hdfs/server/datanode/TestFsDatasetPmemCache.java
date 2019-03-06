@@ -24,7 +24,7 @@ import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockClassLoader;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockLoader;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.PmemCacheManager;
 import org.apache.hadoop.util.NativeCodeLoader;
 import org.apache.log4j.Level;
@@ -117,7 +117,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
         .numDataNodes(1).build();
     myCluster.waitActive();
     dataNode = myCluster.getDataNodes().get(0);
-    MappableBlockClassLoader pmemCacheManager= ((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
+    MappableBlockLoader pmemCacheManager= ((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
         .getMemManager();
     assertTrue(pmemCacheManager instanceof PmemCacheManager);
     assertNotNull(((PmemCacheManager)pmemCacheManager).getOneLocation());
