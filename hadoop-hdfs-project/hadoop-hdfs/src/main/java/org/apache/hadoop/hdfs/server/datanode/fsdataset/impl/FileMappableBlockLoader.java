@@ -21,8 +21,6 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -32,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -39,23 +38,22 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Map block to persistent memory with PMDK functions
+ * Map block to persistent memory without native PMDK lib involved.
  *
  * TODO: Refine persistent location considering storage utilization
  */
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public class PmemMappableBlockLoader extends MappableBlockLoader {
-  private static final Logger LOG = LoggerFactory.getLogger(PmemMappableBlockLoader.class);
+public class FileMappableBlockLoader extends MappableBlockLoader {
+  private static final Logger LOG = LoggerFactory.getLogger(FileMappableBlockLoader.class);
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
   // It's not a strict atomic operation for the performance sake.
   private int index = 0;
   private int count = 0;
 
-  public PmemMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset) throws IOException {
+  public FileMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset) throws IOException {
     this.loadVolumes(pmemVolumes);
-    PmemMappedBlock.setDataset(dataset);
+    FileMappedBlock.setDataset(dataset);
   }
+
 
   /**
    * Load and verify the configured pmem volumes.
@@ -95,22 +93,27 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
     String uuidStr = UUID.randomUUID().toString();
     String testFilePath = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
     byte[] contents = uuidStr.getBytes("UTF-8");
-    NativeIO.POSIX.PmemMappedRegion region = null;
+    RandomAccessFile file = null;
+    MappedByteBuffer out = null;
     try {
-      region = NativeIO.POSIX.Pmem.mapBlock(testFilePath, contents.length);
-      if (region == null) {
+      file = new RandomAccessFile(testFilePath, "rw");
+      out = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, contents.length);
+      if (out == null) {
         throw new IOException("Failed to map into persistent storage.");
       }
-      NativeIO.POSIX.Pmem.memCopy(contents, region.getAddress(), region.isPmem(),
-          contents.length);
-      NativeIO.POSIX.Pmem.memSync(region);
+      out.put(contents);
+      // Forces to write data to storage device containing the mapped file
+      out.force();
     } catch (Throwable t) {
       throw new IOException(t);
     } finally {
-      if (region != null) {
-        NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(), region.getLength());
+      if (out != null) {
+        out.clear();
+      }
+      if (file != null) {
         boolean deleted = false;
         String reason = null;
+        IOUtils.closeQuietly(file);
         try {
           deleted = new File(testFilePath).delete();
         } catch (Throwable t) {
@@ -153,14 +156,15 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    */
   @Override
   public MappableBlock load(long length, FileInputStream blockIn,
-                                   FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
+                            FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
       throws IOException {
 
-    PmemMappedBlock mappableBlock = null;
-    NativeIO.POSIX.PmemMappedRegion region = null;
+    FileMappedBlock mappableBlock = null;
     String filePath = null;
 
     FileChannel blockChannel = null;
+    RandomAccessFile file = null;
+    MappedByteBuffer out = null;
     try {
       blockChannel = blockIn.getChannel();
       if (blockChannel == null) {
@@ -170,23 +174,23 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       assert NativeIO.isAvailable();
       filePath = getOneLocation() + "/" + key.getBlockPoolId() +
           "-" + key.getBlockId();
-      region = NativeIO.POSIX.Pmem.mapBlock(filePath, length);
-      if (region == null) {
+      file = new RandomAccessFile(filePath, "rw");
+      out = file.getChannel().
+          map(FileChannel.MapMode.READ_WRITE, 0, length);
+      if (out == null) {
         throw new IOException("Fail to map the block to persistent storage.");
       }
-      verifyChecksumAndMapBlock(region, length, metaIn, blockChannel, blockFileName);
-      mappableBlock = new PmemMappedBlock(region.getAddress(),
-          region.getLength(), filePath, key);
-      LOG.info("MappableBlock with address = " + region.getAddress() +
-          ", length = " + region.getLength() + ", path = " + filePath +
-          " in persistent memory");
+      verifyChecksumAndMapBlock(out, length, metaIn, blockChannel, blockFileName);
+      mappableBlock = new FileMappedBlock(out,
+          length, filePath, key);
+      LOG.info("MappableBlock with length = " + length + ", path = " + filePath +
+          " into persistent memory");
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
-        if (region != null) {
+        if (out != null) {
           // unmap content from persistent memory
-          NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(),
-              region.getLength());
+          NativeIO.POSIX.munmap(out);
           deleteMappedFile(filePath);
         }
       }
@@ -198,11 +202,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    * Verifies the block's checksum meanwhile copy the block data to persistent memory.
    * This is an I/O intensive operation.
    */
-  private void verifyChecksumAndMapBlock(NativeIO.POSIX.PmemMappedRegion region, long length,
+  private void verifyChecksumAndMapBlock(MappedByteBuffer out, long length,
                                          FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
+
     BlockMetadataHeader header =
         BlockMetadataHeader.readHeader(new DataInputStream(
             new BufferedInputStream(metaIn, BlockMetadataHeader
@@ -221,10 +226,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       ByteBuffer checksumBuf = ByteBuffer.allocate(numChunks * checksumSize);
       // Verify the checksum
       int bytesVerified = 0;
-      long mappedAddress = -1L;
-      if (region != null) {
-        mappedAddress = region.getAddress();
-      }
       while (bytesVerified < length) {
         Preconditions.checkState(bytesVerified % bytesPerChecksum == 0,
             "Unexpected partial chunk before EOF");
@@ -241,19 +242,18 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
         checksumBuf.flip();
         checksum.verifyChunkedSums(blockBuf, checksumBuf, blockFileName,
             bytesVerified);
-        // Success
+
+        // / Copy data to persistent file
+        out.put(blockBuf);
+        // positioning the
         bytesVerified += bytesRead;
-        // Copy data to persistent file
-        NativeIO.POSIX.Pmem.memCopy(blockBuf.array(), mappedAddress,
-            region.isPmem(), bytesRead);
-        mappedAddress += bytesRead;
+
         // Clear buffer
         blockBuf.clear();
         checksumBuf.clear();
       }
-      if (region != null) {
-        NativeIO.POSIX.Pmem.memSync(region);
-      }
+      // Forces to write data to storage device containing the mapped file
+      out.force();
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }

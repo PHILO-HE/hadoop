@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -277,17 +278,21 @@ public class FsDatasetCache {
       if (!NativeIO.isAvailable()) {
         throw new IOException("Native extensions are not available!");
       }
-      if (!NativeIO.POSIX.isPmemAvailable()) {
+      // If PMDK is supported, a PmemMappableBlockLoader is created and it will use PMDK to map block.
+      // Otherwise, a FileMappableBlockLoader is created and no native code is involved in mapping block.
+      if (NativeIO.POSIX.isPmemAvailable()) {
+        this.mappableBlockLoader = new PmemMappableBlockLoader(pmemVolumes, dataset);
+      } else {
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
-          throw new IOException("The native code is built without PMDK support!");
+          LOG.warn("The native code is built without PMDK support! " +
+              "Java code will be used to map block to persistent memory");
         }
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
-          throw new IOException("PMDK dynamic library is NOT found!");
+          LOG.warn("PMDK dynamic library is NOT found!" +
+              "Java code will be used to map block to persistent memory");
         }
+        this.mappableBlockLoader = new FileMappableBlockLoader(pmemVolumes, dataset);
       }
-      // If pmem volumes are configured, a PmemMappableBlockLoader is created for caching data to pmem
-      this.mappableBlockLoader = new PmemMappableBlockLoader(pmemVolumes);
-      PmemMappedBlock.setDataset(dataset);
     } else {
       // If pmem volumes are not configured, a MemoryMappableBlockLoader is created for caching data to DRAM
       this.mappableBlockLoader = new MemoryMappableBlockLoader();

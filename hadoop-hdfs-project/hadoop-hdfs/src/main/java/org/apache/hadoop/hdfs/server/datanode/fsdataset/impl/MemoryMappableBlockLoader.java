@@ -36,7 +36,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
- * Manages for memory caching.
+ * Map block to memory.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
