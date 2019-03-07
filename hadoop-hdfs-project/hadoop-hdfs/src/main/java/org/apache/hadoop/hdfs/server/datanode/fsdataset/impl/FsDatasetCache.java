@@ -274,22 +274,19 @@ public class FsDatasetCache {
 
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes != null && pmemVolumes.length != 0) {
-      // Init for persistent memory
-      if (!NativeIO.isAvailable()) {
-        throw new IOException("Native extensions are not available!");
-      }
       // If PMDK is supported, a PmemMappableBlockLoader is created and it will use PMDK to map block.
-      // Otherwise, a FileMappableBlockLoader is created and no native code is involved in mapping block.
+      // Otherwise, a FileMappableBlockLoader is created and PMDK is NOT involved in mapping block.
       if (NativeIO.POSIX.isPmemAvailable()) {
+        if (!NativeIO.isAvailable()) {
+          throw new IOException("Native extensions are not available!");
+        }
         this.mappableBlockLoader = new PmemMappableBlockLoader(pmemVolumes, dataset);
       } else {
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
-          LOG.warn("The native code is built without PMDK support! " +
-              "Java code will be used to map block to persistent memory");
+          LOG.warn("The native code is built without PMDK support!");
         }
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
-          LOG.warn("PMDK dynamic library is NOT found!" +
-              "Java code will be used to map block to persistent memory");
+          LOG.warn("PMDK library is NOT found!");
         }
         this.mappableBlockLoader = new FileMappableBlockLoader(pmemVolumes, dataset);
       }

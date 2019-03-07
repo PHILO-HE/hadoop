@@ -28,7 +28,8 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 /**
- *
+ * Represents an HDFS block that is mapped to persistent memory by the DataNode.
+ * PMDK is NOT involved in this implementation.
  */
 public class FileMappedBlock implements MappableBlock {
   private static final Logger LOG = LoggerFactory.getLogger(FileMappedBlock

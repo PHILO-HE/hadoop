@@ -46,6 +46,7 @@
     <bundle.zstd.in.bin>false</bundle.zstd.in.bin>
     <isal.lib></isal.lib>
     <bundle.isal>false</bundle.isal>
+    <require.pmdk>false</require.pmdk>
     <pmdk.lib></pmdk.lib>
     <bundle.pmdk>false</bundle.pmdk>
     <openssl.lib></openssl.lib>
