@@ -40,7 +40,7 @@ import java.nio.channels.FileChannel;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class MemoryCacheManager implements MappableBlockLoader {
+public class MemoryMappableBlockLoader extends MappableBlockLoader {
 
   /**
    * Load the block.
@@ -57,7 +57,7 @@ public class MemoryCacheManager implements MappableBlockLoader {
    * @return               The Mappable block.
    */
   @Override
-  public MappableBlock loadMappableBlock(long length, FileInputStream blockIn,
+  public MappableBlock load(long length, FileInputStream blockIn,
                                    FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
       throws IOException {
     MemoryMappedBlock mappableBlock = null;
@@ -86,7 +86,7 @@ public class MemoryCacheManager implements MappableBlockLoader {
   /**
    * Verifies the block's checksum. This is an I/O intensive operation.
    */
-  public static void verifyChecksum(long length,
+  public void verifyChecksum(long length,
                                      FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
@@ -114,7 +114,7 @@ public class MemoryCacheManager implements MappableBlockLoader {
         Preconditions.checkState(bytesVerified % bytesPerChecksum == 0,
             "Unexpected partial chunk before EOF");
         assert bytesVerified % bytesPerChecksum == 0;
-        int bytesRead = MappableBlockLoader.fillBuffer(blockChannel, blockBuf);
+        int bytesRead = fillBuffer(blockChannel, blockBuf);
         if (bytesRead == -1) {
           throw new IOException("checksum verification failed: premature EOF");
         }
@@ -122,7 +122,7 @@ public class MemoryCacheManager implements MappableBlockLoader {
         // Number of read chunks, including partial chunk at end
         int chunks = (bytesRead + bytesPerChecksum - 1) / bytesPerChecksum;
         checksumBuf.limit(chunks * checksumSize);
-        MappableBlockLoader.fillBuffer(metaChannel, checksumBuf);
+        fillBuffer(metaChannel, checksumBuf);
         checksumBuf.flip();
         checksum.verifyChunkedSums(blockBuf, checksumBuf, blockFileName,
             bytesVerified);

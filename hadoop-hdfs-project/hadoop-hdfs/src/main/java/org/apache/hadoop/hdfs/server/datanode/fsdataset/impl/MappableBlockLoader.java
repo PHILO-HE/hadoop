@@ -29,7 +29,7 @@ import java.nio.channels.FileChannel;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public interface MappableBlockLoader {
+public abstract class MappableBlockLoader {
 
   /**
    * Load the block.
@@ -46,13 +46,13 @@ public interface MappableBlockLoader {
    *
    * @return               The Mappable block.
    */
-  MappableBlock loadMappableBlock(long length, FileInputStream blockIn, FileInputStream metaIn,
+  abstract MappableBlock load(long length, FileInputStream blockIn, FileInputStream metaIn,
                      String blockFileName, ExtendedBlockId key) throws IOException;
 
   /**
    * Reads bytes into a buffer until EOF or the buffer's limit is reached.
    */
-  static int fillBuffer(FileChannel channel, ByteBuffer buf)
+  protected int fillBuffer(FileChannel channel, ByteBuffer buf)
       throws IOException {
     int bytesRead = channel.read(buf);
     if (bytesRead < 0) {

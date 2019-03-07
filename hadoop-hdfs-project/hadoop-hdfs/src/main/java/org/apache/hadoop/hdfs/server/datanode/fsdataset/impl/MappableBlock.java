@@ -20,11 +20,8 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.hdfs.ExtendedBlockId;
 
 import java.io.Closeable;
-import java.io.FileInputStream;
-import java.io.IOException;
 
 /**
  * Represents an HDFS block that is mapped by the DataNode.
@@ -32,28 +29,6 @@ import java.io.IOException;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public interface MappableBlock extends Closeable {
-
-  /**
-   * Load the block.
-   *
-   * mmap and mlock the block, and then verify its checksum.
-   *
-   * @param length         The current length of the block.
-   * @param blockIn        The block input stream.  Should be positioned at the
-   *                       start.  The caller must close this.
-   * @param metaIn         The meta file input stream.  Should be positioned at
-   *                       the start.  The caller must close this.
-   * @param blockFileName  The block file name, for logging purposes.
-   * @param key            The extended block ID.
-   *
-   * @return               The Mappable block.
-   */
-  static MappableBlock load(long length, FileInputStream blockIn,
-      FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
-      throws IOException{
-    // Do nothing;
-    return null;
-  }
 
   /**
    * Get the number of bytes that need to be cached.

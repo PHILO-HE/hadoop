@@ -45,18 +45,21 @@ import java.util.UUID;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class PmemCacheManager implements MappableBlockLoader {
-  private static final Logger LOG = LoggerFactory.getLogger(PmemCacheManager
+public class PmemMappableBlockLoader extends MappableBlockLoader {
+  private static final Logger LOG = LoggerFactory.getLogger(PmemMappableBlockLoader
       .class);
   private final ArrayList<String> pmemVolumes = new ArrayList<String>();
   // It's not a strict atomic operation for the performance sake.
   private int index = 0;
   private int count = 0;
 
-  public PmemCacheManager(String[] pmemVolumes) throws IOException {
+  public PmemMappableBlockLoader(String[] pmemVolumes) throws IOException {
     this.loadVolumes(pmemVolumes);
   }
 
+  /**
+   * Load and verify the configured pmem volumes.
+   */
   private void loadVolumes(String[] volumes) throws IOException {
     // Check whether the directory exists
     for (String location: volumes) {
@@ -149,7 +152,7 @@ public class PmemCacheManager implements MappableBlockLoader {
    * @return               The Mappable block.
    */
   @Override
-  public MappableBlock loadMappableBlock(long length, FileInputStream blockIn,
+  public MappableBlock load(long length, FileInputStream blockIn,
                                    FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
       throws IOException {
 
@@ -195,7 +198,7 @@ public class PmemCacheManager implements MappableBlockLoader {
    * Verifies the block's checksum meanwhile copy the block data to pmem.
    * This is an I/O intensive operation.
    */
-  private static void verifyChecksum(NativeIO.POSIX.PmemMappedRegion region, long length,
+  private void verifyChecksum(NativeIO.POSIX.PmemMappedRegion region, long length,
                                      FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
@@ -226,7 +229,7 @@ public class PmemCacheManager implements MappableBlockLoader {
         Preconditions.checkState(bytesVerified % bytesPerChecksum == 0,
             "Unexpected partial chunk before EOF");
         assert bytesVerified % bytesPerChecksum == 0;
-        int bytesRead = MappableBlockLoader.fillBuffer(blockChannel, blockBuf);
+        int bytesRead = fillBuffer(blockChannel, blockBuf);
         if (bytesRead == -1) {
           throw new IOException("checksum verification failed: premature EOF");
         }
@@ -234,7 +237,7 @@ public class PmemCacheManager implements MappableBlockLoader {
         // Number of read chunks, including partial chunk at end
         int chunks = (bytesRead + bytesPerChecksum - 1) / bytesPerChecksum;
         checksumBuf.limit(chunks * checksumSize);
-        MappableBlockLoader.fillBuffer(metaChannel, checksumBuf);
+        fillBuffer(metaChannel, checksumBuf);
         checksumBuf.flip();
         checksum.verifyChunkedSums(blockBuf, checksumBuf, blockFileName,
             bytesVerified);

@@ -36,7 +36,7 @@ import java.io.IOException;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class PmemMappedBlock implements MappableBlock {
-  private static final Logger LOG = LoggerFactory.getLogger(FsDatasetCache
+  private static final Logger LOG = LoggerFactory.getLogger(PmemMappedBlock
       .class);
   private static FsDatasetImpl dataset;
 
@@ -88,7 +88,7 @@ public class PmemMappedBlock implements MappableBlock {
       // pmem_map_file.
       NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres, rounder.roundUp(length));
       pmemMappedAddres = -1L;
-      PmemCacheManager.deleteMappedFile(filePath);
+      PmemMappableBlockLoader.deleteMappedFile(filePath);
       filePath = null;
     }
   }

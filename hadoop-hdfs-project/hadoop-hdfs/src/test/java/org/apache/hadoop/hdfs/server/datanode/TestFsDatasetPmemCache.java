@@ -25,7 +25,7 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockLoader;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.PmemCacheManager;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.PmemMappableBlockLoader;
 import org.apache.hadoop.util.NativeCodeLoader;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
@@ -74,7 +74,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     // Test if Pmem cache enabled
     skipPmemCacheTest = false;
     try {
-      PmemCacheManager.verifyIfValidPmemVolume(new File(PMEM_DIR));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(PMEM_DIR));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -90,8 +90,8 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     String pmem0 = "/mnt/pmem0";
     String pmem1 = "/mnt/pmem1";
     try {
-      PmemCacheManager.verifyIfValidPmemVolume(new File(pmem0));
-      PmemCacheManager.verifyIfValidPmemVolume(new File(pmem1));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem0));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem1));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -108,7 +108,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     myCluster.waitActive();
     DataNode dataNode = myCluster.getDataNodes().get(0);
     assertNull(((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
-        .getMemManager());
+        .getMappableBlockLoader());
     myCluster.shutdown();
 
     // One Pmem directory is set
@@ -117,10 +117,10 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
         .numDataNodes(1).build();
     myCluster.waitActive();
     dataNode = myCluster.getDataNodes().get(0);
-    MappableBlockLoader pmemCacheManager= ((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
-        .getMemManager();
-    assertTrue(pmemCacheManager instanceof PmemCacheManager);
-    assertNotNull(((PmemCacheManager)pmemCacheManager).getOneLocation());
+    MappableBlockLoader loader = ((FsDatasetImpl)dataNode.getFSDataset()).getCacheManager()
+        .getMappableBlockLoader();
+    assertTrue(loader instanceof PmemMappableBlockLoader);
+    assertNotNull(((PmemMappableBlockLoader)loader).getOneLocation());
     myCluster.shutdown();
 
     // Two Pmem directories are set
@@ -132,7 +132,7 @@ public class TestFsDatasetPmemCache extends TestFsDatasetCache {
     // Test round-robin works
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      String location = ((PmemCacheManager)pmemCacheManager).getOneLocation();
+      String location = ((PmemMappableBlockLoader)loader).getOneLocation();
       if (location.startsWith(pmem0)) {
         count1++;
       } else if (location.startsWith(pmem1)) {

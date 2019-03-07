@@ -227,7 +227,7 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
-  private final MappableBlockLoader memManager;
+  private final MappableBlockLoader mappableBlockLoader;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -285,12 +285,12 @@ public class FsDatasetCache {
           throw new IOException("PMDK dynamic library is NOT found!");
         }
       }
-      // If pmem volumes are configured, a PmemCacheManager is created for caching data to pmem
-      this.memManager = new PmemCacheManager(pmemVolumes);
+      // If pmem volumes are configured, a PmemMappableBlockLoader is created for caching data to pmem
+      this.mappableBlockLoader = new PmemMappableBlockLoader(pmemVolumes);
       PmemMappedBlock.setDataset(dataset);
     } else {
-      // If pmem volumes are not configured, a MemoryCacheManager is created for caching data to DRAM
-      this.memManager = new MemoryCacheManager();
+      // If pmem volumes are not configured, a MemoryMappableBlockLoader is created for caching data to DRAM
+      this.mappableBlockLoader = new MemoryMappableBlockLoader();
     }
   }
 
@@ -488,7 +488,7 @@ public class FsDatasetCache {
         try {
           // Currently user can only choose either memory or persistent memory
           // to cache the data.
-          mappableBlock = memManager.loadMappableBlock(length, blockIn, metaIn, blockFileName, key);
+          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn, blockFileName, key);
         } catch (IOException e) {
           LOG.error("Failed to cache the block [key=" + key + "]!", e);
           throw new RuntimeException(e);
@@ -642,7 +642,7 @@ public class FsDatasetCache {
   }
 
   @VisibleForTesting
-  public MappableBlockLoader getMemManager() {
-    return memManager;
+  public MappableBlockLoader getMappableBlockLoader() {
+    return mappableBlockLoader;
   }
 }
