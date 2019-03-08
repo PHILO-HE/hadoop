@@ -23,12 +23,14 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -46,7 +48,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
@@ -227,6 +228,8 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
+  private final MappableBlockLoader mappableBlockLoader;
+
   /**
    * Number of cache commands that could not be completed successfully
    */
@@ -236,7 +239,7 @@ public class FsDatasetCache {
    */
   final AtomicLong numBlocksFailedToUncache = new AtomicLong(0);
 
-  public FsDatasetCache(FsDatasetImpl dataset) {
+  public FsDatasetCache(FsDatasetImpl dataset) throws IOException {
     this.dataset = dataset;
     this.maxBytes = dataset.datanode.getDnConf().getMaxLockedMemory();
     ThreadFactory workerFactory = new ThreadFactoryBuilder()
@@ -268,6 +271,8 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
+
+    this.mappableBlockLoader = new MemoryMappableBlockLoader();
   }
 
   /**
@@ -420,7 +425,8 @@ public class FsDatasetCache {
     private final long length;
     private final long genstamp;
 
-    CachingTask(ExtendedBlockId key, String blockFileName, long length, long genstamp) {
+    CachingTask(ExtendedBlockId key, String blockFileName, long length,
+        long genstamp) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
@@ -461,15 +467,12 @@ public class FsDatasetCache {
           return;
         }
         try {
-          mappableBlock = MappableBlock.
-              load(length, blockIn, metaIn, blockFileName);
-        } catch (ChecksumException e) {
-          // Exception message is bogus since this wasn't caused by a file read
-          LOG.warn("Failed to cache " + key + ": checksum verification failed.");
-          return;
+          // Currently user can only choose either memory or persistent memory
+          // to cache the data.
+          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn, blockFileName, key);
         } catch (IOException e) {
-          LOG.warn("Failed to cache " + key, e);
-          return;
+          LOG.error("Failed to cache the block [key=" + key + "]!", e);
+          throw new RuntimeException(e);
         }
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
@@ -482,6 +485,7 @@ public class FsDatasetCache {
             return;
           }
           mappableBlockMap.put(key, new Value(mappableBlock, State.CACHED));
+          mappableBlock.afterCache();
         }
         LOG.debug("Successfully cached {}.  We are now caching {} bytes in"
             + " total.", key, newUsedBytes);
@@ -498,9 +502,7 @@ public class FsDatasetCache {
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
                   + "bytes in total.", key, usedBytesCount.get());
-          if (mappableBlock != null) {
-            mappableBlock.close();
-          }
+          IOUtils.closeQuietly(mappableBlock);
           numBlocksFailedToCache.incrementAndGet();
 
           synchronized (FsDatasetCache.this) {
@@ -618,5 +620,10 @@ public class FsDatasetCache {
     ExtendedBlockId block = new ExtendedBlockId(blockId, bpid);
     Value val = mappableBlockMap.get(block);
     return (val != null) && val.state.shouldAdvertise();
+  }
+
+  @VisibleForTesting
+  public MappableBlockLoader getMappableBlockLoader() {
+    return mappableBlockLoader;
   }
 }
