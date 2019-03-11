@@ -28,33 +28,29 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 /**
- * Represents an HDFS block that is mapped to persistent memory by the DataNode.
- * PMDK is NOT involved in this implementation.
+ * Represents an HDFS block that is mapped to persistent memory by the DataNode
+ * with mapped byte buffer. PMDK is NOT involved in this implementation.
  */
 public class FileMappedBlock implements MappableBlock {
-  private static final Logger LOG = LoggerFactory.getLogger(FileMappedBlock
-      .class);
-  private static FsDatasetImpl dataset;
+  private static final Logger LOG = LoggerFactory.getLogger(FileMappedBlock.class);
+  private final FsDatasetImpl dataset;
   private MappedByteBuffer mmap;
   private long length;
   private String filePath = null;
   private ExtendedBlockId key;
 
   FileMappedBlock(MappedByteBuffer mmap, long length, String filePath,
-                  ExtendedBlockId key) {
+                  ExtendedBlockId key, FsDatasetImpl dataset) {
     assert length > 0;
     this.mmap = mmap;
     this.length = length;
     this.filePath = filePath;
     this.key = key;
+    this.dataset = dataset;
   }
 
   public long getLength() {
     return length;
-  }
-
-  public static void setDataset(FsDatasetImpl impl) {
-    dataset = impl;
   }
 
   public void afterCache() {
@@ -73,7 +69,12 @@ public class FileMappedBlock implements MappableBlock {
   public void close() {
     LOG.info("Start to unmap file " + filePath + " with length " + length);
     NativeIO.POSIX.munmap(mmap);
-    FileMappableBlockLoader.deleteMappedFile(filePath);
-    filePath = null;
+    try {
+      FsDatasetUtil.deleteMappedFile(filePath);
+    } catch (IOException e) {
+      LOG.warn("Failed to delete the mapped File: {}!", filePath, e);
+    } finally {
+      filePath = null;
+    }
   }
 }

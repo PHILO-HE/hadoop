@@ -36,7 +36,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
- * Map block to memory.
+ * Maps block to memory.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -58,7 +58,8 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
    */
   @Override
   public MappableBlock load(long length, FileInputStream blockIn,
-                                   FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
+                            FileInputStream metaIn, String blockFileName,
+                            ExtendedBlockId key)
       throws IOException {
     MemoryMappedBlock mappableBlock = null;
     MappedByteBuffer mmap = null;
@@ -86,8 +87,8 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   /**
    * Verifies the block's checksum. This is an I/O intensive operation.
    */
-  public void verifyChecksum(long length,
-                                     FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
+  public void verifyChecksum(long length, FileInputStream metaIn,
+                             FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header

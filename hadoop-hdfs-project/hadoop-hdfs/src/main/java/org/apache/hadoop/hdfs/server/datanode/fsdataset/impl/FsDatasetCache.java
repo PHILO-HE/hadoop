@@ -30,7 +30,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -48,6 +47,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
@@ -275,7 +275,7 @@ public class FsDatasetCache {
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes != null && pmemVolumes.length != 0) {
       // If PMDK is supported, a PmemMappableBlockLoader is created and it will use PMDK to map block.
-      // Otherwise, a FileMappableBlockLoader is created and PMDK is NOT involved in mapping block.
+      // Otherwise, a FileMappableBlockLoader is created and it will use mapped byte buffer to map block.
       if (NativeIO.POSIX.isPmemAvailable()) {
         if (!NativeIO.isAvailable()) {
           throw new IOException("Native extensions are not available!");
@@ -490,10 +490,15 @@ public class FsDatasetCache {
         try {
           // Currently user can only choose either memory or persistent memory
           // to cache the data.
-          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn, blockFileName, key);
+          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
+              blockFileName, key);
+        } catch (ChecksumException e) {
+          // Exception message is bogus since this wasn't caused by a file read
+          LOG.warn("Failed to cache " + key + ": checksum verification failed.");
+          return;
         } catch (IOException e) {
-          LOG.error("Failed to cache the block [key=" + key + "]!", e);
-          throw new RuntimeException(e);
+          LOG.warn("Failed to cache the block [key=" + key + "]!", e);
+          return;
         }
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);

@@ -27,7 +27,6 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.Page
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 import java.io.IOException;
 
 /**
@@ -36,9 +35,9 @@ import java.io.IOException;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class PmemMappedBlock implements MappableBlock {
-  private static final Logger LOG = LoggerFactory.getLogger(PmemMappedBlock
-      .class);
-  private static FsDatasetImpl dataset;
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PmemMappedBlock.class);
+  private final FsDatasetImpl dataset;
 
   private long pmemMappedAddres = -1L;
   private long length;
@@ -47,22 +46,19 @@ public class PmemMappedBlock implements MappableBlock {
   private PageRounder rounder;
 
   PmemMappedBlock(long pmemMappedAddres, long length, String filePath,
-                  ExtendedBlockId key) {
+                  ExtendedBlockId key, FsDatasetImpl dataset) {
     assert length > 0;
     this.pmemMappedAddres = pmemMappedAddres;
     this.length = length;
     this.filePath = filePath;
     this.key = key;
     rounder = new PageRounder();
+    this.dataset = dataset;
   }
 
   @Override
   public long getLength() {
     return length;
-  }
-
-  public static void setDataset(FsDatasetImpl impl) {
-    dataset = impl;
   }
 
   @Override
@@ -86,10 +82,16 @@ public class PmemMappedBlock implements MappableBlock {
       // Current libpmem will report error when pmem_unmap is called with
       // length not aligned with page size, although the length is returned by
       // pmem_map_file.
-      NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres, rounder.roundUp(length));
+      NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres,
+          rounder.roundUp(length));
       pmemMappedAddres = -1L;
-      PmemMappableBlockLoader.deleteMappedFile(filePath);
-      filePath = null;
+      try {
+        FsDatasetUtil.deleteMappedFile(filePath);
+      } catch (IOException e) {
+        LOG.warn("Failed to delete the mapped File: {}!", filePath, e);
+      } finally {
+        filePath = null;
+      }
     }
   }
 }

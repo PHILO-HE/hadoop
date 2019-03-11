@@ -30,31 +30,36 @@ import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Map block to persistent memory with PMDK functions
+ * Map block to persistent memory with native PMDK libs.
  *
  * TODO: Refine persistent location considering storage utilization
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class PmemMappableBlockLoader extends MappableBlockLoader {
-  private static final Logger LOG = LoggerFactory.getLogger(PmemMappableBlockLoader.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PmemMappableBlockLoader.class);
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
-  // It's not a strict atomic operation for the performance sake.
-  private int index = 0;
+  private final FsDatasetImpl dataset;
   private int count = 0;
+  // Strict atomic operation is not guaranteed for the performance sake.
+  private int index = 0;
 
-  public PmemMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset) throws IOException {
+  public PmemMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset)
+      throws IOException {
     this.loadVolumes(pmemVolumes);
-    PmemMappedBlock.setDataset(dataset);
+    this.dataset = dataset;
   }
 
   /**
@@ -66,8 +71,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       try {
         File locFile = new File(location);
         verifyIfValidPmemVolume(locFile);
-        // Remove all files under the volume. Files may be left after an
-        // unexpected datanode restart.
+        // Remove all files under the volume.
         FileUtils.cleanDirectory(locFile);
       } catch (IllegalArgumentException e) {
         LOG.error("Failed to parse persistent memory location " + location +
@@ -83,12 +87,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   public static void verifyIfValidPmemVolume(File pmemDir)
       throws IOException {
     if (!pmemDir.exists()) {
-      final String message = pmemDir + " does not exist";
+      final String message = pmemDir + " does not exist.";
       throw new IOException(message);
     }
 
     if (!pmemDir.isDirectory()) {
-      final String message = pmemDir + " is not a directory";
+      final String message = pmemDir + " is not a directory.";
       throw new IllegalArgumentException(message);
     }
 
@@ -109,23 +113,18 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
     } finally {
       if (region != null) {
         NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(), region.getLength());
-        boolean deleted = false;
-        String reason = null;
         try {
-          deleted = new File(testFilePath).delete();
-        } catch (Throwable t) {
-          reason = t.getMessage();
-        }
-        if (!deleted) {
-          LOG.warn("Failed to delete persistent memory test file " +
-              testFilePath + (reason == null ? "" : " due to: " + reason));
+          FsDatasetUtil.deleteMappedFile(testFilePath);
+        } catch (IOException e) {
+          LOG.warn("Failed to delete test file " + testFilePath +
+              " from persistent memory", e);
         }
       }
     }
   }
 
   /**
-   * Choose a persistent location based on specific algorithms.
+   * Choose a persistent memory location based on a specific algorithm.
    * Currently it is a round-robin policy.
    */
   public String getOneLocation() {
@@ -153,7 +152,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    */
   @Override
   public MappableBlock load(long length, FileInputStream blockIn,
-                                   FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
+                            FileInputStream metaIn, String blockFileName,
+                            ExtendedBlockId key)
       throws IOException {
 
     PmemMappedBlock mappableBlock = null;
@@ -174,12 +174,13 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       if (region == null) {
         throw new IOException("Fail to map the block to persistent storage.");
       }
-      verifyChecksumAndMapBlock(region, length, metaIn, blockChannel, blockFileName);
+      verifyChecksumAndMapBlock(region, length, metaIn, blockChannel,
+          blockFileName);
       mappableBlock = new PmemMappedBlock(region.getAddress(),
-          region.getLength(), filePath, key);
-      LOG.info("MappableBlock with address = " + region.getAddress() +
+          region.getLength(), filePath, key, dataset);
+      LOG.info("MappableBlock [address = " + region.getAddress() +
           ", length = " + region.getLength() + ", path = " + filePath +
-          " in persistent memory");
+          "] is loaded into persistent memory");
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
@@ -187,7 +188,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
           // unmap content from persistent memory
           NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(),
               region.getLength());
-          deleteMappedFile(filePath);
+          FsDatasetUtil.deleteMappedFile(filePath);
         }
       }
     }
@@ -195,11 +196,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   /**
-   * Verifies the block's checksum meanwhile copy the block data to persistent memory.
+   * Verifies the block's checksum meanwhile map block to persistent memory.
    * This is an I/O intensive operation.
    */
-  private void verifyChecksumAndMapBlock(NativeIO.POSIX.PmemMappedRegion region, long length,
-                                         FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
+  private void verifyChecksumAndMapBlock(
+      NativeIO.POSIX.PmemMappedRegion region, long length,
+      FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
@@ -211,7 +213,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
     try {
       metaChannel = metaIn.getChannel();
       if (metaChannel == null) {
-        throw new IOException("Block InputStream meta file has no FileChannel.");
+        throw new IOException("Cannot get FileChannel" +
+            " from Block InputStream meta file.");
       }
       DataChecksum checksum = header.getChecksum();
       final int bytesPerChecksum = checksum.getBytesPerChecksum();
@@ -227,11 +230,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       while (bytesVerified < length) {
         Preconditions.checkState(bytesVerified % bytesPerChecksum == 0,
-            "Unexpected partial chunk before EOF");
+            "Unexpected partial chunk before EOF.");
         assert bytesVerified % bytesPerChecksum == 0;
         int bytesRead = fillBuffer(blockChannel, blockBuf);
         if (bytesRead == -1) {
-          throw new IOException("checksum verification failed: premature EOF");
+          throw new IOException("checksum verification failed: " +
+              "premature EOF.");
         }
         blockBuf.flip();
         // Number of read chunks, including partial chunk at end
@@ -256,21 +260,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
     } finally {
       IOUtils.closeQuietly(metaChannel);
-    }
-  }
-
-  public static void deleteMappedFile(String filePath) {
-    try {
-      if (filePath != null) {
-        boolean result = Files.deleteIfExists(Paths.get(filePath));
-        if (!result) {
-          LOG.error("Fail to delete mapped file " + filePath +
-              " from persistent memory");
-        }
-      }
-    } catch (Throwable e) {
-      LOG.error("Fail to delete mapped file " + filePath + " for " +
-          e.getMessage() + " from persistent memory");
     }
   }
 }

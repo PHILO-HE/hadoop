@@ -28,32 +28,37 @@ import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.UUID;
 
 /**
- * Map block to persistent memory without native PMDK lib involved.
+ * Map block to persistent memory by using mapped byte buffer.
  *
  * TODO: Refine persistent location considering storage utilization
  */
 public class FileMappableBlockLoader extends MappableBlockLoader {
-  private static final Logger LOG = LoggerFactory.getLogger(FileMappableBlockLoader.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(FileMappableBlockLoader.class);
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
-  // It's not a strict atomic operation for the performance sake.
-  private int index = 0;
+  private final FsDatasetImpl dataset;
   private int count = 0;
+  // Strict atomic operation is not guaranteed for the performance sake.
+  private int index = 0;
 
-  public FileMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset) throws IOException {
+  public FileMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset)
+      throws IOException {
     this.loadVolumes(pmemVolumes);
-    FileMappedBlock.setDataset(dataset);
+    this.dataset = dataset;
   }
-
 
   /**
    * Load and verify the configured pmem volumes.
@@ -64,8 +69,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       try {
         File locFile = new File(location);
         verifyIfValidPmemVolume(locFile);
-        // Remove all files under the volume. Files may be left after an
-        // unexpected datanode restart.
+        // Remove all files under the volume.
         FileUtils.cleanDirectory(locFile);
       } catch (IllegalArgumentException e) {
         LOG.error("Failed to parse persistent memory location " + location +
@@ -97,7 +101,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     MappedByteBuffer out = null;
     try {
       file = new RandomAccessFile(testFilePath, "rw");
-      out = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, contents.length);
+      out = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0,
+          contents.length);
       if (out == null) {
         throw new IOException("Failed to map into persistent storage.");
       }
@@ -111,24 +116,19 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
         out.clear();
       }
       if (file != null) {
-        boolean deleted = false;
-        String reason = null;
         IOUtils.closeQuietly(file);
         try {
-          deleted = new File(testFilePath).delete();
-        } catch (Throwable t) {
-          reason = t.getMessage();
-        }
-        if (!deleted) {
-          LOG.warn("Failed to delete persistent memory test file " +
-              testFilePath + (reason == null ? "" : " due to: " + reason));
+          FsDatasetUtil.deleteMappedFile(testFilePath);
+        } catch (IOException e) {
+          LOG.warn("Failed to delete test file " + testFilePath +
+              " from persistent memory", e);
         }
       }
     }
   }
 
   /**
-   * Choose a persistent location based on specific algorithms.
+   * Choose a persistent memory location based on a specific algorithm.
    * Currently it is a round-robin policy.
    */
   public String getOneLocation() {
@@ -156,14 +156,15 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
    */
   @Override
   public MappableBlock load(long length, FileInputStream blockIn,
-                            FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
+                            FileInputStream metaIn, String blockFileName,
+                            ExtendedBlockId key)
       throws IOException {
 
     FileMappedBlock mappableBlock = null;
     String filePath = null;
 
     FileChannel blockChannel = null;
-    RandomAccessFile file = null;
+    RandomAccessFile file;
     MappedByteBuffer out = null;
     try {
       blockChannel = blockIn.getChannel();
@@ -180,18 +181,18 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       if (out == null) {
         throw new IOException("Fail to map the block to persistent storage.");
       }
-      verifyChecksumAndMapBlock(out, length, metaIn, blockChannel, blockFileName);
-      mappableBlock = new FileMappedBlock(out,
-          length, filePath, key);
-      LOG.info("MappableBlock with length = " + length + ", path = " + filePath +
-          " into persistent memory");
+      verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
+          blockFileName);
+      mappableBlock = new FileMappedBlock(out, length, filePath, key, dataset);
+      LOG.info("MappableBlock [length = " + length +
+          ", path = " + filePath + "] is loaded into persistent memory");
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
         if (out != null) {
           // unmap content from persistent memory
           NativeIO.POSIX.munmap(out);
-          deleteMappedFile(filePath);
+          FsDatasetUtil.deleteMappedFile(filePath);
         }
       }
     }
@@ -199,11 +200,12 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
   }
 
   /**
-   * Verifies the block's checksum meanwhile copy the block data to persistent memory.
+   * Verifies the block's checksum meanwhile map block to persistent memory.
    * This is an I/O intensive operation.
    */
-  private void verifyChecksumAndMapBlock(MappedByteBuffer out, long length,
-                                         FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
+  private void verifyChecksumAndMapBlock(
+      MappedByteBuffer out, long length, FileInputStream metaIn,
+      FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
@@ -216,7 +218,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     try {
       metaChannel = metaIn.getChannel();
       if (metaChannel == null) {
-        throw new IOException("Block InputStream meta file has no FileChannel.");
+        throw new IOException("Cannot get FileChannel from " +
+            "Block InputStream meta file.");
       }
       DataChecksum checksum = header.getChecksum();
       final int bytesPerChecksum = checksum.getBytesPerChecksum();
@@ -256,21 +259,6 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       out.force();
     } finally {
       IOUtils.closeQuietly(metaChannel);
-    }
-  }
-
-  public static void deleteMappedFile(String filePath) {
-    try {
-      if (filePath != null) {
-        boolean result = Files.deleteIfExists(Paths.get(filePath));
-        if (!result) {
-          LOG.error("Fail to delete mapped file " + filePath +
-              " from persistent memory");
-        }
-      }
-    } catch (Throwable e) {
-      LOG.error("Fail to delete mapped file " + filePath + " for " +
-          e.getMessage() + " from persistent memory");
     }
   }
 }
