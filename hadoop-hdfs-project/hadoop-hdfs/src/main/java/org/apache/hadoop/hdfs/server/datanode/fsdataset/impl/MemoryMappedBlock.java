@@ -46,7 +46,7 @@ public class MemoryMappedBlock implements MappableBlock {
 
   @Override
   public void afterCache() {
-    // Nothing to do
+    // Nothing to do after block is cached to memory
   }
 
   @Override

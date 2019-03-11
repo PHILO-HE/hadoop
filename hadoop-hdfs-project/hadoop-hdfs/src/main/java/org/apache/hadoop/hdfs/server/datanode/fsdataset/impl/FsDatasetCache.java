@@ -30,7 +30,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -48,6 +47,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
@@ -271,7 +271,6 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
-
     this.mappableBlockLoader = new MemoryMappableBlockLoader();
   }
 
@@ -425,8 +424,7 @@ public class FsDatasetCache {
     private final long length;
     private final long genstamp;
 
-    CachingTask(ExtendedBlockId key, String blockFileName, long length,
-        long genstamp) {
+    CachingTask(ExtendedBlockId key, String blockFileName, long length, long genstamp) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
@@ -467,12 +465,13 @@ public class FsDatasetCache {
           return;
         }
         try {
-          // Currently user can only choose either memory or persistent memory
-          // to cache the data.
           mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn, blockFileName, key);
+        } catch (ChecksumException e) {
+          // Exception message is bogus since this wasn't caused by a file read
+          LOG.warn("Failed to cache " + key + ": checksum verification failed.");
         } catch (IOException e) {
-          LOG.error("Failed to cache the block [key=" + key + "]!", e);
-          throw new RuntimeException(e);
+          LOG.warn("Failed to cache the block [key=" + key + "]!", e);
+          return;
         }
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
