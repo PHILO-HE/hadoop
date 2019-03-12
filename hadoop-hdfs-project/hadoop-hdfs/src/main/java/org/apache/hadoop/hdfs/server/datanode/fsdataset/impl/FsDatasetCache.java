@@ -23,7 +23,6 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -465,10 +464,12 @@ public class FsDatasetCache {
           return;
         }
         try {
-          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn, blockFileName, key);
+          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
+              blockFileName, key);
         } catch (ChecksumException e) {
           // Exception message is bogus since this wasn't caused by a file read
           LOG.warn("Failed to cache " + key + ": checksum verification failed.");
+          return;
         } catch (IOException e) {
           LOG.warn("Failed to cache the block [key=" + key + "]!", e);
           return;
@@ -619,10 +620,5 @@ public class FsDatasetCache {
     ExtendedBlockId block = new ExtendedBlockId(blockId, bpid);
     Value val = mappableBlockMap.get(block);
     return (val != null) && val.state.shouldAdvertise();
-  }
-
-  @VisibleForTesting
-  public MappableBlockLoader getMappableBlockLoader() {
-    return mappableBlockLoader;
   }
 }

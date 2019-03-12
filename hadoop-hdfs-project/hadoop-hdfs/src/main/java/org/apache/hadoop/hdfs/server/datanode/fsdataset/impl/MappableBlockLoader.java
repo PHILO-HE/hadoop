@@ -27,6 +27,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
+/**
+ * Maps block to memory by DataNode.
+ */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public abstract class MappableBlockLoader {
@@ -34,7 +37,7 @@ public abstract class MappableBlockLoader {
   /**
    * Load the block.
    *
-   * mmap and mlock the block, and then verify its checksum.
+   * mmap the block, and then verify its checksum.
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream.  Should be positioned at the
@@ -46,8 +49,10 @@ public abstract class MappableBlockLoader {
    *
    * @return               The Mappable block.
    */
-  abstract MappableBlock load(long length, FileInputStream blockIn, FileInputStream metaIn,
-                     String blockFileName, ExtendedBlockId key) throws IOException;
+  abstract MappableBlock load(long length, FileInputStream blockIn,
+                              FileInputStream metaIn, String blockFileName,
+                              ExtendedBlockId key)
+      throws IOException;
 
   /**
    * Reads bytes into a buffer until EOF or the buffer's limit is reached.
