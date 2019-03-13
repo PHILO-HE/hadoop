@@ -32,7 +32,8 @@ import java.nio.MappedByteBuffer;
  * with mapped byte buffer. PMDK is NOT involved in this implementation.
  */
 public class FileMappedBlock implements MappableBlock {
-  private static final Logger LOG = LoggerFactory.getLogger(FileMappedBlock.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(FileMappedBlock.class);
   private final FsDatasetImpl dataset;
   private MappedByteBuffer mmap;
   private long length;

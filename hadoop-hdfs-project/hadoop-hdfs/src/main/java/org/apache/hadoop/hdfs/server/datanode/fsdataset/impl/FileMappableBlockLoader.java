@@ -59,7 +59,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     this.dataset = dataset;
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes == null || pmemVolumes.length == 0) {
-      throw new IOException("The persistent memory volumes are not configured!");
+      throw new IOException(
+          "The persistent memory volumes are not configured!");
     }
     this.loadVolumes(pmemVolumes);
   }
@@ -149,12 +150,14 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
    * Map the block and verify its checksum.
    *
    * @param length         The current length of the block.
-   * @param blockIn        The block input stream.  Should be positioned at the
-   *                       start.  The caller must close this.
-   * @param metaIn         The meta file input stream.  Should be positioned at
-   *                       the start.  The caller must close this.
+   * @param blockIn        The block input stream. Should be positioned at the
+   *                       start. The caller must close this.
+   * @param metaIn         The meta file input stream. Should be positioned at
+   *                       the start. The caller must close this.
    * @param blockFileName  The block file name, for logging purposes.
    * @param key            The extended block ID.
+   *
+   * @throws IOException   If mapping block fails or checksum fails.
    *
    * @return               The Mappable block.
    */
