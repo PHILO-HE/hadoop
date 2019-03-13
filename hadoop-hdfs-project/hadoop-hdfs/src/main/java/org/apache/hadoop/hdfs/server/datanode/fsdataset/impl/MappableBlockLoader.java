@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
- * Maps block to memory by DataNode.
+ * Maps block to DataNode cache region.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -37,15 +37,17 @@ public abstract class MappableBlockLoader {
   /**
    * Load the block.
    *
-   * mmap the block, and then verify its checksum.
+   * Map the block, and then verify its checksum.
    *
    * @param length         The current length of the block.
-   * @param blockIn        The block input stream.  Should be positioned at the
-   *                       start.  The caller must close this.
-   * @param metaIn         The meta file input stream.  Should be positioned at
-   *                       the start.  The caller must close this.
+   * @param blockIn        The block input stream. Should be positioned at the
+   *                       start. The caller must close this.
+   * @param metaIn         The meta file input stream. Should be positioned at
+   *                       the start. The caller must close this.
    * @param blockFileName  The block file name, for logging purposes.
    * @param key            The extended block ID.
+   *
+   * @throws IOException   If mapping block to cache region fails or checksum fails.
    *
    * @return               The Mappable block.
    */
