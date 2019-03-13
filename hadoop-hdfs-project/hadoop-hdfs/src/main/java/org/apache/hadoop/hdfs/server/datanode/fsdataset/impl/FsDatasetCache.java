@@ -23,6 +23,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -270,7 +271,32 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
-    this.mappableBlockLoader = new MemoryMappableBlockLoader();
+
+    String cacheLoader = dataset.datanode.getDnConf().getCacheLoader();
+    if (cacheLoader.equals(MemoryMappableBlockLoader.class.getSimpleName())) {
+      // MemoryMappableBlockLoader is the default cache loader for caching data to DRAM
+      this.mappableBlockLoader = new MemoryMappableBlockLoader();
+    } else if (cacheLoader.equals(FileMappableBlockLoader.class.getSimpleName())) {
+      // FileMappableBlockLoader is able to map block to pmem without PMDK dependency
+      this.mappableBlockLoader = new FileMappableBlockLoader(dataset);
+    } else if (cacheLoader.equals(PmemMappableBlockLoader.class.getSimpleName())) {
+      // PMDK should be available for PmemMappableBlockLoader mapping block.
+      if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
+        String msg = "";
+        if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
+          msg = "The native code is built without PMDK support!";
+        }
+        if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
+          msg = "PMDK library is NOT found!";
+        }
+        throw new IOException("Native extensions are not available!" + msg);
+      }
+      this.mappableBlockLoader = new PmemMappableBlockLoader(dataset);
+    } else {
+      this.mappableBlockLoader = null;
+      throw new IOException(cacheLoader + " is not recognized." +
+          " Please specify a correct cache loader in the configuration.");
+    }
   }
 
   /**
@@ -423,7 +449,8 @@ public class FsDatasetCache {
     private final long length;
     private final long genstamp;
 
-    CachingTask(ExtendedBlockId key, String blockFileName, long length, long genstamp) {
+    CachingTask(ExtendedBlockId key, String blockFileName, long length,
+        long genstamp) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
@@ -464,6 +491,8 @@ public class FsDatasetCache {
           return;
         }
         try {
+          // Currently user can only choose either memory or persistent memory
+          // to cache the data.
           mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
               blockFileName, key);
         } catch (ChecksumException e) {
@@ -620,5 +649,10 @@ public class FsDatasetCache {
     ExtendedBlockId block = new ExtendedBlockId(blockId, bpid);
     Value val = mappableBlockMap.get(block);
     return (val != null) && val.state.shouldAdvertise();
+  }
+
+  @VisibleForTesting
+  public MappableBlockLoader getMappableBlockLoader() {
+    return mappableBlockLoader;
   }
 }
