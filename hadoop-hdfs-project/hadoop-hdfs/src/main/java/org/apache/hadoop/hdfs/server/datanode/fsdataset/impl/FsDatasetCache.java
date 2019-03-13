@@ -436,8 +436,7 @@ public class FsDatasetCache {
     private final long length;
     private final long genstamp;
 
-    CachingTask(ExtendedBlockId key, String blockFileName, long length,
-        long genstamp) {
+    CachingTask(ExtendedBlockId key, String blockFileName, long length, long genstamp) {
       this.key = key;
       this.blockFileName = blockFileName;
       this.length = length;
