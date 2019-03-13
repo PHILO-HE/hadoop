@@ -273,13 +273,13 @@ public class FsDatasetCache {
     this.revocationPollingMs = confRevocationPollingMs;
 
     String cacheLoader = dataset.datanode.getDnConf().getCacheLoader();
-    if (cacheLoader.equals(MemoryMappableBlockLoader.class.getName())) {
+    if (cacheLoader.equals(MemoryMappableBlockLoader.class.getSimpleName())) {
       // MemoryMappableBlockLoader is the default cache loader for caching data to DRAM
       this.mappableBlockLoader = new MemoryMappableBlockLoader();
-    } else if (cacheLoader.equals(FileMappableBlockLoader.class.getName())) {
+    } else if (cacheLoader.equals(FileMappableBlockLoader.class.getSimpleName())) {
       // FileMappableBlockLoader is able to map block to pmem without PMDK dependency
       this.mappableBlockLoader = new FileMappableBlockLoader(dataset);
-    } else if (cacheLoader.equals(PmemMappableBlockLoader.class.getName())) {
+    } else if (cacheLoader.equals(PmemMappableBlockLoader.class.getSimpleName())) {
       // PMDK should be available for PmemMappableBlockLoader mapping block.
       if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
         String msg = "";
