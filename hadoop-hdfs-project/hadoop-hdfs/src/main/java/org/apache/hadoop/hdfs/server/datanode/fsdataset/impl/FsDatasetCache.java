@@ -272,27 +272,30 @@ public class FsDatasetCache {
     }
     this.revocationPollingMs = confRevocationPollingMs;
 
-    String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
-    if (pmemVolumes != null && pmemVolumes.length != 0) {
-      // If PMDK is supported, a PmemMappableBlockLoader is created and it will use PMDK to map block.
-      // Otherwise, a FileMappableBlockLoader is created and it will use mapped byte buffer to map block.
-      if (NativeIO.POSIX.isPmemAvailable()) {
-        if (!NativeIO.isAvailable()) {
-          throw new IOException("Native extensions are not available!");
-        }
-        this.mappableBlockLoader = new PmemMappableBlockLoader(pmemVolumes, dataset);
-      } else {
+    String cacheLoader = dataset.datanode.getDnConf().getCacheLoader();
+    if (cacheLoader.equals(MemoryMappableBlockLoader.class.getName())) {
+      // MemoryMappableBlockLoader is the default cache loader for caching data to DRAM
+      this.mappableBlockLoader = new MemoryMappableBlockLoader();
+    } else if (cacheLoader.equals(FileMappableBlockLoader.class.getName())) {
+      // FileMappableBlockLoader is able to map block to pmem without PMDK dependency
+      this.mappableBlockLoader = new FileMappableBlockLoader(dataset);
+    } else if (cacheLoader.equals(PmemMappableBlockLoader.class.getName())) {
+      // PMDK should be available for PmemMappableBlockLoader mapping block.
+      if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
+        String msg = "";
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
-          LOG.warn("The native code is built without PMDK support!");
+          msg = "The native code is built without PMDK support!";
         }
         if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
-          LOG.warn("PMDK library is NOT found!");
+          msg = "PMDK library is NOT found!";
         }
-        this.mappableBlockLoader = new FileMappableBlockLoader(pmemVolumes, dataset);
+        throw new IOException("Native extensions are not available!" + msg);
       }
+      this.mappableBlockLoader = new PmemMappableBlockLoader(dataset);
     } else {
-      // If pmem volumes are not configured, a MemoryMappableBlockLoader is created for caching data to DRAM
-      this.mappableBlockLoader = new MemoryMappableBlockLoader();
+      this.mappableBlockLoader = null;
+      throw new IOException(cacheLoader + " is not recognized." +
+          " Please specify a correct cache loader in the configuration.");
     }
   }
 

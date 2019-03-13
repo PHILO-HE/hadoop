@@ -54,10 +54,14 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
   // Strict atomic operation is not guaranteed for the performance sake.
   private int index = 0;
 
-  public FileMappableBlockLoader(String[] pmemVolumes, FsDatasetImpl dataset)
+  public FileMappableBlockLoader(FsDatasetImpl dataset)
       throws IOException {
-    this.loadVolumes(pmemVolumes);
     this.dataset = dataset;
+    String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
+    if (pmemVolumes == null || pmemVolumes.length == 0) {
+      throw new IOException("The persistent memory volumes are not configured!");
+    }
+    this.loadVolumes(pmemVolumes);
   }
 
   /**

@@ -27,6 +27,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHO
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHOLD_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIR_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_NON_LOCAL_LAZY_PERSIST;
@@ -113,6 +115,7 @@ public class DNConf {
   final long xceiverStopTimeout;
   final long restartReplicaExpiry;
 
+  final String cacheLoader;
   final long maxLockedMemory;
   private final String[] pmemDirs;
 
@@ -250,11 +253,14 @@ public class DNConf {
         DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_KEY,
         DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_DEFAULT);
 
+    this.cacheLoader = getConf().get(DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME,
+        DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME_DEFAULT);
+
     this.maxLockedMemory = getConf().getLongBytes(
         DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
         DFS_DATANODE_MAX_LOCKED_MEMORY_DEFAULT);
 
-    pmemDirs = getConf().getTrimmedStrings(DFS_DATANODE_CACHE_PMEM_DIR_KEY);
+    this.pmemDirs = getConf().getTrimmedStrings(DFS_DATANODE_CACHE_PMEM_DIR_KEY);
 
     this.restartReplicaExpiry = getConf().getLong(
         DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY,
@@ -418,6 +424,10 @@ public class DNConf {
   }
   int getMaxDataLength() {
     return maxDataLength;
+  }
+
+  public String getCacheLoader() {
+    return cacheLoader;
   }
 
   public String[] getPmemVolumes() {

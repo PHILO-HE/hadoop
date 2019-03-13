@@ -2527,6 +2527,18 @@
 </property>
 
 <property>
+  <name>dfs.datanode.cache.loader.impl.classname</name>
+  <value>MemoryMappableBlockLoader</value>
+  <description>
+    Currently, there are three cache loaders: MemoryMappableBlockLoader,
+    FileMappableBlockLoader and PmemMappableBlockLoader. By default,
+    MemoryMappableBlockLoader is used to cache block to memory. FileMappableBlockLoader
+    is used to cache block to pmem with mapped byte buffer. And PmemMappableBlockLoader
+    is used to cache block to pmem with PMDK libs.
+  </description>
+</property>
+
+<property>
   <name>dfs.datanode.max.locked.memory</name>
   <value>0</value>
   <description>
@@ -2547,8 +2559,10 @@
   <name>dfs.datanode.cache.pmem.dirs</name>
   <value></value>
   <description>
-    This value specifies the directory of persistent memory.
-    Multiple directories are supported. Please separate them by ",".
+    This value specifies the directory of cache region for FileMappableBlockLoader
+    or PmemMappableBlockLoader use, depending on the value of property
+    dfs.datanode.cache.loader.impl.classname.
+    Multiple directories separated by "," are acceptable.
   </description>
 </property>
 
