@@ -2531,10 +2531,8 @@
   <value>MemoryMappableBlockLoader</value>
   <description>
     Currently, there are three cache loaders: MemoryMappableBlockLoader,
-    FileMappableBlockLoader and PmemMappableBlockLoader. By default,
-    MemoryMappableBlockLoader is used to cache block to memory. FileMappableBlockLoader
-    is used to cache block to pmem with mapped byte buffer. And PmemMappableBlockLoader
-    is used to cache block to pmem with PMDK libs.
+    FileMappableBlockLoader. MemoryMappableBlockLoader is used to map block to
+    memory. And FileMappableBlockLoader can map block to pmem with mapped byte buffer.
   </description>
 </property>
 
@@ -2560,8 +2558,7 @@
   <value></value>
   <description>
     This value specifies the directory of cache region for FileMappableBlockLoader
-    or PmemMappableBlockLoader use, depending on the value of property
-    dfs.datanode.cache.loader.impl.classname.
+    use, depending on the value of property dfs.datanode.cache.loader.impl.classname.
     Multiple directories separated by "," are acceptable.
   </description>
 </property>
