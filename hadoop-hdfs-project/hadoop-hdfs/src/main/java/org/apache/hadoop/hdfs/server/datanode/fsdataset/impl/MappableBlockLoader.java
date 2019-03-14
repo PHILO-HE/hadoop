@@ -47,7 +47,8 @@ public abstract class MappableBlockLoader {
    * @param blockFileName  The block file name, for logging purposes.
    * @param key            The extended block ID.
    *
-   * @throws IOException   If mapping block to cache region fails or checksum fails.
+   * @throws IOException   If mapping block to cache region fails or checksum
+   *                       fails.
    *
    * @return               The Mappable block.
    */

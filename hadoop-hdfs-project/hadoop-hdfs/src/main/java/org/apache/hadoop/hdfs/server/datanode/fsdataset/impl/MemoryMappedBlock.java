@@ -45,11 +45,6 @@ public class MemoryMappedBlock implements MappableBlock {
   }
 
   @Override
-  public void afterCache() {
-    // Nothing to do after block is cached to memory
-  }
-
-  @Override
   public void close() {
     if (mmap != null) {
       NativeIO.POSIX.munmap(mmap);
