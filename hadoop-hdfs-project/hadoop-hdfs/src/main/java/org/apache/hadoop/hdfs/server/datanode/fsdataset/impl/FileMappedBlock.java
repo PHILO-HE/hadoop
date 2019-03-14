@@ -50,10 +50,12 @@ public class FileMappedBlock implements MappableBlock {
     this.dataset = dataset;
   }
 
+  @Override
   public long getLength() {
     return length;
   }
 
+  @Override
   public void afterCache() {
     try {
       ReplicaInfo replica = dataset.getBlockReplica(key.getBlockPoolId(),
