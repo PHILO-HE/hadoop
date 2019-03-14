@@ -485,6 +485,7 @@ public class FsDatasetCache {
             return;
           }
           mappableBlockMap.put(key, new Value(mappableBlock, State.CACHED));
+          mappableBlock.afterCache();
         }
         LOG.debug("Successfully cached {}.  We are now caching {} bytes in"
             + " total.", key, newUsedBytes);
