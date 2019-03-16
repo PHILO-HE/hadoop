@@ -2527,12 +2527,14 @@
 </property>
 
 <property>
-  <name>dfs.datanode.cache.loader.impl.classname</name>
-  <value>MemoryMappableBlockLoader</value>
+  <name>dfs.datanode.cache.loader.class</name>
+  <value>org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MemoryMappableBlockLoader</value>
   <description>
-    Currently, there are three cache loaders: MemoryMappableBlockLoader,
-    FileMappableBlockLoader. MemoryMappableBlockLoader is used to map block to
-    memory. And FileMappableBlockLoader can map block to pmem with mapped byte buffer.
+    Currently, there are two cache loaders implemented: MemoryMappableBlockLoader
+    and FileMappableBlockLoader. By default, MemoryMappableBlockLoader is used and
+    it maps block replica into memory. FileMappableBlockLoader can map block to
+    persistent memory with mapped byte buffer, which is implemented by Java code.
+    The value of dfs.datanode.cache.pmem.dirs specifies the persistent memory directory.
   </description>
 </property>
 
@@ -2557,9 +2559,9 @@
   <name>dfs.datanode.cache.pmem.dirs</name>
   <value></value>
   <description>
-    This value specifies the directory of cache region for FileMappableBlockLoader
-    use, depending on the value of property dfs.datanode.cache.loader.impl.classname.
-    Multiple directories separated by "," are acceptable.
+    This value specifies the persistent memory directory used for caching block
+    replica. It matters only if the value of dfs.datanode.cache.loader.class is
+    FileMappableBlockLoader. Multiple directories separated by "," are acceptable.
   </description>
 </property>
 

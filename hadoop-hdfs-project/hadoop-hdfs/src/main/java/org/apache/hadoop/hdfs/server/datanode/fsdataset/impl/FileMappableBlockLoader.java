@@ -18,9 +18,13 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -43,8 +47,10 @@ import java.util.UUID;
 /**
  * Map block to persistent memory by using mapped byte buffer.
  *
- * TODO: Refine persistent location considering storage utilization
+ * TODO: Refine location selection policy by considering storage utilization
  */
+@InterfaceAudience.Private
+@InterfaceStability.Unstable
 public class FileMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(FileMappableBlockLoader.class);
@@ -59,8 +65,9 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     this.dataset = dataset;
     String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
     if (pmemVolumes == null || pmemVolumes.length == 0) {
-      throw new IOException(
-          "The persistent memory volumes are not configured!");
+      throw new IOException("The persistent memory volume, " +
+          DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
+          " is not configured!");
     }
     this.loadVolumes(pmemVolumes);
   }
@@ -87,6 +94,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     count = pmemVolumes.size();
   }
 
+  @VisibleForTesting
   public static void verifyIfValidPmemVolume(File pmemDir)
       throws IOException {
     if (!pmemDir.exists()) {
@@ -122,6 +130,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       }
       if (file != null) {
         IOUtils.closeQuietly(file);
+        NativeIO.POSIX.munmap(out);
         try {
           FsDatasetUtil.deleteMappedFile(testFilePath);
         } catch (IOException e) {
@@ -148,6 +157,9 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
    * Load the block.
    *
    * Map the block and verify its checksum.
+   *
+   * The block will be mapped to PmemDir/BlockPoolId-BlockId, in which PmemDir
+   * is a persistent memory volume selected by getOneLocation() method
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream. Should be positioned at the
@@ -179,7 +191,6 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
         throw new IOException("Block InputStream has no FileChannel.");
       }
 
-      assert NativeIO.isAvailable();
       filePath = getOneLocation() + "/" + key.getBlockPoolId() +
           "-" + key.getBlockId();
       file = new RandomAccessFile(filePath, "rw");

@@ -15,9 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.datanode;
+package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIR_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_CLASS;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -38,7 +39,6 @@ import org.apache.hadoop.fs.FsTracer;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hdfs.AppendTestUtil;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -48,10 +48,8 @@ import org.apache.hadoop.hdfs.protocol.CacheDirectiveIterator;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants.DatanodeReportType;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FileMappableBlockLoader;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetImpl;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.MappableBlockLoader;
+import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.TestFsDatasetCache;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -78,7 +76,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
 
   @Override
   protected void postSetupConf(Configuration config) {
-    config.set(DFS_DATANODE_CACHE_PMEM_DIR_KEY, PMEM_DIR);
+    config.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
   }
 
   @Override
@@ -118,19 +116,18 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     }
 
     Configuration myConf = new HdfsConfiguration();
-    myConf.setLong(DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
-        CACHE_CAPACITY);
-    myConf.set(DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME,
-        "FileMappableBlockLoader");
-
+    myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
+        "org.apache.hadoop.hdfs.server.datanode." +
+            "fsdataset.impl.FileMappableBlockLoader");
     // Set two persistent memory directories for HDFS cache
-    myConf.set(DFS_DATANODE_CACHE_PMEM_DIR_KEY, pmem0 + "," + pmem1);
+    myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, pmem0 + "," + pmem1);
+
     MiniDFSCluster myCluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(1).build();
     myCluster.waitActive();
     DataNode dataNode = myCluster.getDataNodes().get(0);
     MappableBlockLoader loader = ((FsDatasetImpl)dataNode.getFSDataset())
-        .getCacheManager().getMappableBlockLoader();
+        .cacheManager.getMappableBlockLoader();
     assertTrue(loader instanceof FileMappableBlockLoader);
     assertNotNull(((FileMappableBlockLoader)loader).getOneLocation());
     // Test round-robin selection policy
@@ -154,11 +151,10 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     shutdownCluster();
     int NUM_DATANODES = 2;
     Configuration myConf = new HdfsConfiguration();
-    myConf.setLong(DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
-        CACHE_CAPACITY);
-    myConf.set(DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME,
-        "FileMappableBlockLoader");
-    myConf.set(DFS_DATANODE_CACHE_PMEM_DIR_KEY, PMEM_DIR);
+    myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
+        "org.apache.hadoop.hdfs.server.datanode." +
+            "fsdataset.impl.FileMappableBlockLoader");
+    myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
 
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(NUM_DATANODES).build();
@@ -257,13 +253,11 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     shutdownCluster();
     int NUM_DATANODES = 2;
     Configuration myConf = new HdfsConfiguration();
-    myConf.setLong(DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
-        CACHE_CAPACITY);
-    myConf.set(DFS_DATANODE_CACHE_PMEM_DIR_KEY, PMEM_DIR);
-    myConf.set(DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_IMPL_CLASSNAME,
-        "FileMappableBlockLoader");
+    myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
+        "org.apache.hadoop.hdfs.server.datanode." +
+            "fsdataset.impl.FileMappableBlockLoader");
+    myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
 
-    // No Pmem directory is set
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(NUM_DATANODES).build();
     cluster.waitActive();

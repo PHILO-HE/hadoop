@@ -228,7 +228,7 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
-  private final MappableBlockLoader mappableBlockLoader;
+  private MappableBlockLoader mappableBlockLoader;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -272,17 +272,17 @@ public class FsDatasetCache {
     }
     this.revocationPollingMs = confRevocationPollingMs;
 
-    String cacheLoader = dataset.datanode.getDnConf().getCacheLoader();
-    if (cacheLoader.equals(MemoryMappableBlockLoader.class.getSimpleName())) {
-      // MemoryMappableBlockLoader is the default cache loader for caching data to DRAM
-      this.mappableBlockLoader = new MemoryMappableBlockLoader();
-    } else if (cacheLoader.equals(FileMappableBlockLoader.class.getSimpleName())) {
-      // FileMappableBlockLoader is able to map block to pmem without PMDK dependency
-      this.mappableBlockLoader = new FileMappableBlockLoader(dataset);
-    } else {
-      this.mappableBlockLoader = null;
-      throw new IOException(cacheLoader + " is not recognized." +
-          " Please specify a correct cache loader in the configuration.");
+    // Currently, user can only choose one MappableBlockLoader to cache data.
+    // So either memory or persistent memory will be served as cache region
+    // for a DataNode.
+    Class<? extends MappableBlockLoader> cacheLoaderClazz =
+        dataset.datanode.getDnConf().getCacheLoaderClazz();
+    try {
+      this.mappableBlockLoader = cacheLoaderClazz
+          .getConstructor(FsDatasetImpl.class)
+          .newInstance(dataset);
+    } catch (ReflectiveOperationException e) {
+      LOG.error("Failed to instantiate MappableBlockLoader!", e);
     }
   }
 
@@ -477,8 +477,6 @@ public class FsDatasetCache {
           return;
         }
         try {
-          // Currently user can only choose either memory or persistent memory
-          // to cache the data.
           mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
               blockFileName, key);
         } catch (ChecksumException e) {

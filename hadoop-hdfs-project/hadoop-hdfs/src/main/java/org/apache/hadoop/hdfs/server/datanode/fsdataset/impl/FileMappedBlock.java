@@ -18,6 +18,8 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -31,6 +33,8 @@ import java.nio.MappedByteBuffer;
  * Represents an HDFS block that is mapped to persistent memory by the DataNode
  * with mapped byte buffer. PMDK is NOT involved in this implementation.
  */
+@InterfaceAudience.Private
+@InterfaceStability.Unstable
 public class FileMappedBlock implements MappableBlock {
   private static final Logger LOG =
       LoggerFactory.getLogger(FileMappedBlock.class);
