@@ -159,7 +159,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
    * Map the block and verify its checksum.
    *
    * The block will be mapped to PmemDir/BlockPoolId-BlockId, in which PmemDir
-   * is a persistent memory volume selected by getOneLocation() method
+   * is a persistent memory volume selected by getOneLocation() method.
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream. Should be positioned at the
