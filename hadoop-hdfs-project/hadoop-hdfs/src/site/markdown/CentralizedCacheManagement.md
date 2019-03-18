@@ -32,6 +32,8 @@ Centralized cache management in HDFS has many significant advantages.
 
 4.  Centralized caching can improve overall cluster memory utilization. When relying on the OS buffer cache at each DataNode, repeated reads of a block will result in all *n* replicas of the block being pulled into buffer cache. With centralized cache management, a user can explicitly pin only *m* of the *n* replicas, saving *n-m* memory.
 
+5.  HDFS supports non-volatile storage class memory (SCM, also known as persistent memory) cache in Linux platform. User can enable either memory cache or SCM cache for a DataNode. Memory cache and SCM cache can coexist among DataNodes. In the current implementation, the cache data in SCM will be cleaned up when DataNode restarts. Supporting persistent HDFS cache on SCM will be considered in the future.
+
 Use Cases
 ---------
 
@@ -210,11 +212,23 @@ Be sure to configure the following:
 
     This determines the maximum amount of memory a DataNode will use for caching. On Unix-like systems, the "locked-in-memory size" ulimit (`ulimit -l`) of the DataNode user also needs to be increased to match this parameter (see below section on [OS Limits](#OS_Limits)). When setting this value, please remember that you will need space in memory for other things as well, such as the DataNode and application JVM heaps and the operating system page cache.
 
+    If persistent memory is used to cache block, the value of this property determines the maximum amount in bytes of persistent memory that a DataNode can use for caching.
+
     This setting is shared with the [Lazy Persist Writes feature](./MemoryStorage.html). The Data Node will ensure that the combined memory used by Lazy Persist Writes and Centralized Cache Management does not exceed the amount configured in `dfs.datanode.max.locked.memory`.
 
 #### Optional
 
 The following properties are not required, but may be specified for tuning:
+
+*   dfs.datanode.cache.loader.class
+
+    Currently, there are three cache loaders implemented: MemoryMappableBlockLoader, FileMappableBlockLoader and PmemMappableBlockLoader. By default, MemoryMappableBlockLoader is used and it maps block replica into memory. FileMappableBlockLoader can map block to persistent memory with mapped byte buffer, which is implemented by Java code. PmemMappableBlockLoader can also cache block replica to persistent memory, which is implemented with native PMDK libs.
+
+    The value of `dfs.datanode.cache.pmem.dirs` specifies the persistent memory directory, which must be configured if FileMappableBlockLoader or PmemMappableBlockLoader is used.
+
+*   dfs.datanode.cache.pmem.dirs
+
+    This property specifies the cache volumes of SCM, which is required by FileMappableBlockLoader and PmemMappableBlockLoader configured for `dfs.datanode.cache.loader.class`. For multiply directories, they should be separated with “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty.
 
 *   dfs.namenode.path.based.cache.refresh.interval.ms
 
