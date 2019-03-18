@@ -113,7 +113,7 @@ public class TestFsDatasetCache {
       NativeIO.POSIX.getCacheManipulator().getOperatingSystemPageSize();
   protected static final long BLOCK_SIZE = PAGE_SIZE;
 
-  protected static Configuration conf;
+  private static Configuration conf;
   private static MiniDFSCluster cluster = null;
   private static FileSystem fs;
   private static NameNode nn;
@@ -295,10 +295,10 @@ public class TestFsDatasetCache {
    * @throws Exception
    */
   protected static void waitForCachedBlocks(
-      NameNode nn, final int expectedCachedBlocks,
+      NameNode nameNode, final int expectedCachedBlocks,
       final int expectedCachedReplicas, final String logString)
       throws Exception {
-    final FSNamesystem namesystem = nn.getNamesystem();
+    final FSNamesystem namesystem = nameNode.getNamesystem();
     final CacheManager cacheManager = namesystem.getCacheManager();
     LOG.info("Waiting for " + expectedCachedBlocks + " blocks with " +
         expectedCachedReplicas + " replicas.");
@@ -312,11 +312,12 @@ public class TestFsDatasetCache {
               cacheManager.getCachedBlocks();
           if (cachedBlocks != null) {
             for (Iterator<CachedBlock> iter = cachedBlocks.iterator();
-                 iter.hasNext(); ) {
+                 iter.hasNext();) {
               CachedBlock cachedBlock = iter.next();
               numCachedBlocks++;
               numCachedReplicas +=
-                  cachedBlock.getDatanodes(DatanodeDescriptor.CachedBlocksList.Type.CACHED).size();
+                  cachedBlock.getDatanodes(
+                      DatanodeDescriptor.CachedBlocksList.Type.CACHED).size();
             }
           }
         } finally {

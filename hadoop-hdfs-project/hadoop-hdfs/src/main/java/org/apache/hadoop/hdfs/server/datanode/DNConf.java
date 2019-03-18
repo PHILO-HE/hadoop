@@ -116,7 +116,7 @@ public class DNConf {
   final long xceiverStopTimeout;
   final long restartReplicaExpiry;
 
-  final Class<? extends MappableBlockLoader> cacheLoaderClazz;
+  private final Class<? extends MappableBlockLoader> cacheLoaderClazz;
   final long maxLockedMemory;
   private final String[] pmemDirs;
 
@@ -264,7 +264,8 @@ public class DNConf {
         DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
         DFS_DATANODE_MAX_LOCKED_MEMORY_DEFAULT);
 
-    this.pmemDirs = getConf().getTrimmedStrings(DFS_DATANODE_CACHE_PMEM_DIRS_KEY);
+    this.pmemDirs = getConf().getTrimmedStrings(
+        DFS_DATANODE_CACHE_PMEM_DIRS_KEY);
 
     this.restartReplicaExpiry = getConf().getLong(
         DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY,

@@ -211,7 +211,7 @@ public class FsDatasetUtil {
         }
       }
     } catch (Throwable e) {
-      throw new IOException("Fail to delete the mapped file " + filePath + " from persistent memory");
+      throw new IOException("Failed to delete the mapped file: " + filePath);
     }
   }
 }

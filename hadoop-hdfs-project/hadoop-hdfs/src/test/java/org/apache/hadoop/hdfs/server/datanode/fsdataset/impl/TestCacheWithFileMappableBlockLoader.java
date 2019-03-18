@@ -68,7 +68,7 @@ import net.jcip.annotations.NotThreadSafe;
  */
 @NotThreadSafe
 public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
-  private static String PMEM_DIR = MiniDFSCluster.getBaseDirectory() + "/pmem";
+  private static final String PMEM_DIR = MiniDFSCluster.getBaseDirectory() + "/pmem";
 
   static {
     LogManager.getLogger(FsDatasetCache.class).setLevel(Level.DEBUG);
@@ -149,7 +149,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
   @Test//(timeout=120000)
   public void testWaitForCachedReplicas() throws Exception {
     shutdownCluster();
-    int NUM_DATANODES = 2;
+    final int NUM_DATANODES = 2;
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
@@ -178,7 +178,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     NamenodeProtocols nnRpc = namenode.getRpcServer();
     DataNode dn0 = cluster.getDataNodes().get(0);
     String bpid = cluster.getNamesystem().getBlockPoolId();
-    LinkedList<Long> bogusBlockIds = new LinkedList<Long> ();
+    LinkedList<Long> bogusBlockIds = new LinkedList<Long>();
     bogusBlockIds.add(999999L);
     nnRpc.cacheReport(dn0.getDNRegistrationForBP(bpid), bpid, bogusBlockIds);
 
@@ -233,7 +233,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
 
     // Uncache and check each path in sequence
     RemoteIterator<CacheDirectiveEntry> entries =
-        new CacheDirectiveIterator(nnRpc, null, FsTracer.get(conf));
+        new CacheDirectiveIterator(nnRpc, null, FsTracer.get(myConf));
     for (int i=0; i<numFiles; i++) {
       CacheDirectiveEntry entry = entries.next();
       nnRpc.removeCacheDirective(entry.getInfo().getId());
@@ -280,7 +280,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     NamenodeProtocols nnRpc = namenode.getRpcServer();
     DataNode dn0 = cluster.getDataNodes().get(0);
     String bpid = cluster.getNamesystem().getBlockPoolId();
-    LinkedList<Long> bogusBlockIds = new LinkedList<Long> ();
+    LinkedList<Long> bogusBlockIds = new LinkedList<Long>();
     bogusBlockIds.add(999999L);
     nnRpc.cacheReport(dn0.getDNRegistrationForBP(bpid), bpid, bogusBlockIds);
 
@@ -321,7 +321,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
 
     // Uncache and check each path in sequence
     RemoteIterator<CacheDirectiveEntry> entries =
-        new CacheDirectiveIterator(nnRpc, null, FsTracer.get(conf));
+        new CacheDirectiveIterator(nnRpc, null, FsTracer.get(myConf));
     for (int i = 0; i < numFiles; i++) {
       CacheDirectiveEntry entry = entries.next();
       nnRpc.removeCacheDirective(entry.getInfo().getId());

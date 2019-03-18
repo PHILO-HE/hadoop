@@ -63,13 +63,14 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
   public FileMappableBlockLoader(FsDatasetImpl dataset)
       throws IOException {
     this.dataset = dataset;
-    String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
-    if (pmemVolumes == null || pmemVolumes.length == 0) {
+    String[] pmemVolumesConfigured =
+        dataset.datanode.getDnConf().getPmemVolumes();
+    if (pmemVolumesConfigured == null || pmemVolumesConfigured.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
           " is not configured!");
     }
-    this.loadVolumes(pmemVolumes);
+    this.loadVolumes(pmemVolumesConfigured);
   }
 
   /**

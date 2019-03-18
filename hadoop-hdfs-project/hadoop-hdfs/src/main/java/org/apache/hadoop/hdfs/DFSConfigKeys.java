@@ -392,11 +392,13 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_DATANODE_CACHE_REVOCATION_POLLING_MS = "dfs.datanode.cache.revocation.polling.ms";
   public static final long DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT = 500L;
 
-  // Currently, there are three cache loaders: MemoryMappableBlockLoader, FileMappableBlockLoader.
-  // By default, MemoryMappableBlockLoader is used to cache block to memory.
+  // Currently, there are two cache loaders: MemoryMappableBlockLoader and
+  // FileMappableBlockLoader. MemoryMappableBlockLoader is the default cache
+  // loader which can cache block replica to memory.
   public static final String DFS_DATANODE_CACHE_LOADER_CLASS =
       "dfs.datanode.cache.loader.class";
-  public static final Class<MemoryMappableBlockLoader> DFS_DATANODE_CACHE_LOADER_CLASS_DEFAULT =
+  public static final Class<? extends MappableBlockLoader>
+      DFS_DATANODE_CACHE_LOADER_CLASS_DEFAULT =
       MemoryMappableBlockLoader.class;
 
   // Multiple dirs separated by "," are acceptable.
