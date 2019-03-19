@@ -78,19 +78,18 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
    */
   private void loadVolumes(String[] volumes) throws IOException {
     // Check whether the directory exists
-    for (String location: volumes) {
+    for (String volume: volumes) {
       try {
-        File locFile = new File(location);
-        verifyIfValidPmemVolume(locFile);
+        File pmemDir = new File(volume);
+        verifyIfValidPmemVolume(pmemDir);
         // Remove all files under the volume.
-        FileUtils.cleanDirectory(locFile);
+        FileUtils.cleanDirectory(pmemDir);
       } catch (IllegalArgumentException e) {
-        LOG.error("Failed to parse persistent memory location " + location +
-            " for " + e.getMessage());
-        throw new IOException(e);
+        throw new IOException(
+            "Failed to parse persistent memory volume " + volume, e);
       }
-      pmemVolumes.add(location);
-      LOG.info("Added persistent memory - " + location);
+      pmemVolumes.add(volume);
+      LOG.info("Added persistent memory - " + volume);
     }
     count = pmemVolumes.size();
   }
@@ -118,13 +117,15 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       out = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0,
           contents.length);
       if (out == null) {
-        throw new IOException("Failed to map into persistent storage.");
+        throw new IOException();
       }
       out.put(contents);
       // Forces to write data to storage device containing the mapped file
       out.force();
     } catch (Throwable t) {
-      throw new IOException(t);
+      throw new IOException(
+          "Exception while writing data to persistent storage dir: " +
+              pmemDir, t);
     } finally {
       if (out != null) {
         out.clear();
@@ -184,7 +185,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     String filePath = null;
 
     FileChannel blockChannel = null;
-    RandomAccessFile file;
+    RandomAccessFile file = null;
     MappedByteBuffer out = null;
     try {
       blockChannel = blockIn.getChannel();
@@ -198,7 +199,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       out = file.getChannel().
           map(FileChannel.MapMode.READ_WRITE, 0, length);
       if (out == null) {
-        throw new IOException("Fail to map the block to persistent storage.");
+        throw new IOException("Failed to map the block " + blockFileName +
+            " to persistent storage.");
       }
       verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
           blockFileName);
@@ -208,6 +210,9 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
+        if (file != null) {
+          IOUtils.closeQuietly(file);
+        }
         if (out != null) {
           // unmap content from persistent memory
           NativeIO.POSIX.munmap(out);
@@ -254,7 +259,9 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
         assert bytesVerified % bytesPerChecksum == 0;
         int bytesRead = fillBuffer(blockChannel, blockBuf);
         if (bytesRead == -1) {
-          throw new IOException("checksum verification failed: premature EOF");
+          throw new IOException(
+              "Checksum verification failed for the block " + blockFileName +
+                  ": premature EOF");
         }
         blockBuf.flip();
         // Number of read chunks, including partial chunk at end

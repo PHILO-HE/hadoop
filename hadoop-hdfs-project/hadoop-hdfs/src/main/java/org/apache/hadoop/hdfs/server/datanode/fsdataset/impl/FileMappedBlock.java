@@ -60,15 +60,14 @@ public class FileMappedBlock implements MappableBlock {
   }
 
   @Override
-  public void afterCache() {
+  public void afterCache() throws IOException {
     try {
       ReplicaInfo replica = dataset.getBlockReplica(key.getBlockPoolId(),
           key.getBlockId());
       replica.setCachePath(filePath);
     } catch (IOException e) {
-      LOG.warn("Fail to find the replica file of PoolID = " +
-          key.getBlockPoolId() + ", BlockID = " + key.getBlockId() +
-          " for :" + e.getMessage());
+      throw new IOException("Fail to find the replica file of PoolID = " +
+          key.getBlockPoolId() + ", BlockID = " + key.getBlockId(), e);
     }
   }
 

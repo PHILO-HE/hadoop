@@ -41,11 +41,6 @@ import java.nio.channels.FileChannel;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class MemoryMappableBlockLoader extends MappableBlockLoader {
-  private FsDatasetImpl dataset;
-
-  public MemoryMappableBlockLoader(FsDatasetImpl dataset) {
-    this.dataset = dataset;
-  }
 
   /**
    * Load the block.

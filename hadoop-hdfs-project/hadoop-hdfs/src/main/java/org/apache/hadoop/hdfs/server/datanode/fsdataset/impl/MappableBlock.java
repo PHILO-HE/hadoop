@@ -22,6 +22,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 
 import java.io.Closeable;
+import java.io.IOException;
 
 /**
  * Represents an HDFS block that is mapped by the DataNode.
@@ -39,5 +40,5 @@ public interface MappableBlock extends Closeable {
   /**
    * Do something after a block is cached.
    */
-  void afterCache();
+  void afterCache() throws IOException;
 }

@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -45,7 +46,7 @@ public class MemoryMappedBlock implements MappableBlock {
   }
 
   @Override
-  public void afterCache() {
+  public void afterCache() throws IOException {
     // Nothing to do after block is cached to memory
   }
 

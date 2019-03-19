@@ -149,7 +149,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     myCluster.shutdown();
   }
 
-  @Test//(timeout=120000)
+  @Test(timeout=120000)
   public void testWaitForCachedReplicas() throws Exception {
     shutdownCluster();
     final int NUM_DATANODES = 2;
@@ -252,7 +252,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     }
   }
 
-  @Test//(timeout=120000)
+  @Test(timeout=120000)
   public void testWriteRead() throws Exception {
     shutdownCluster();
     int NUM_DATANODES = 2;

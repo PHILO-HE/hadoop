@@ -278,10 +278,21 @@ public class FsDatasetCache {
     Class<? extends MappableBlockLoader> cacheLoaderClazz =
         dataset.datanode.getDnConf().getCacheLoaderClazz();
     try {
+      // Try to instantiate a MemoryMappableBlockLoader
       this.mappableBlockLoader = cacheLoaderClazz
-          .getConstructor(FsDatasetImpl.class)
-          .newInstance(dataset);
-    } catch (ReflectiveOperationException e) {
+          .getConstructor()
+          .newInstance();
+    } catch (NoSuchMethodException e) {
+      try {
+        // Try to instantiate a FileMappableBlockLoader
+        this.mappableBlockLoader = cacheLoaderClazz
+            .getConstructor(FsDatasetImpl.class)
+            .newInstance(dataset);
+      } catch (ReflectiveOperationException ex) {
+        LOG.error("Failed to instantiate MappableBlockLoader!", ex);
+      }
+    }
+    catch (ReflectiveOperationException e) {
       LOG.error("Failed to instantiate MappableBlockLoader!", e);
     }
   }
@@ -476,6 +487,7 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache " + key + ": failed to open file", e);
           return;
         }
+
         try {
           mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
               blockFileName, key);
@@ -487,6 +499,13 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache the block [key=" + key + "]!", e);
           return;
         }
+        try {
+          mappableBlock.afterCache();
+        } catch (IOException e) {
+          LOG.error(e.getMessage());
+          return;
+        }
+
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
           Preconditions.checkNotNull(value);
@@ -498,7 +517,6 @@ public class FsDatasetCache {
             return;
           }
           mappableBlockMap.put(key, new Value(mappableBlock, State.CACHED));
-          mappableBlock.afterCache();
         }
         LOG.debug("Successfully cached {}.  We are now caching {} bytes in"
             + " total.", key, newUsedBytes);
