@@ -49,7 +49,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
@@ -145,6 +144,8 @@ public class FsDatasetCache {
    */
   private final UsedBytesCount usedBytesCount;
 
+  private final PmemUsedBytesCount pmemUsedBytesCount;
+
   public static class PageRounder {
     private final long osPageSize =
         NativeIO.POSIX.getCacheManipulator().getOperatingSystemPageSize();
@@ -224,9 +225,58 @@ public class FsDatasetCache {
   }
 
   /**
-   * The total cache capacity in bytes.
+   * Counts used bytes for persistent memory.
+   */
+  private class PmemUsedBytesCount {
+    private final AtomicLong usedBytes = new AtomicLong(0);
+
+    /**
+     * Try to reserve more bytes.
+     *
+     * @param count    The number of bytes to add.
+     *
+     * @return         The new number of usedBytes if we succeeded;
+     *                 -1 if we failed.
+     */
+    long reserve(long count) {
+      while (true) {
+        long cur = usedBytes.get();
+        long next = cur + count;
+        if (next > maxBytesPmem) {
+          return -1;
+        }
+        if (usedBytes.compareAndSet(cur, next)) {
+          return next;
+        }
+      }
+    }
+
+    /**
+     * Release some bytes that we're using.
+     *
+     * @param count    The number of bytes to release.
+     *
+     * @return         The new number of usedBytes.
+     */
+    long release(long count) {
+      return usedBytes.addAndGet(-count);
+    }
+
+    long get() {
+      return usedBytes.get();
+    }
+  }
+
+  /**
+   * The total cache capacity in bytes of DRAM.
    */
   private final long maxBytes;
+
+  /**
+   * The total cache capacity in bytes of persistent memory.
+   * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
+   */
+  private final long maxBytesPmem;
 
   private MappableBlockLoader mappableBlockLoader;
 
@@ -247,6 +297,7 @@ public class FsDatasetCache {
         .setNameFormat("FsDatasetCache-%d-" + dataset.toString())
         .build();
     this.usedBytesCount = new UsedBytesCount();
+    this.pmemUsedBytesCount = new PmemUsedBytesCount();
     this.uncachingExecutor = new ThreadPoolExecutor(
             0, 1,
             60, TimeUnit.SECONDS,
@@ -277,23 +328,23 @@ public class FsDatasetCache {
     // for a DataNode.
     Class<? extends MappableBlockLoader> cacheLoaderClazz =
         dataset.datanode.getDnConf().getCacheLoaderClazz();
-    try {
-      // Try to instantiate a MemoryMappableBlockLoader
-      this.mappableBlockLoader = cacheLoaderClazz
-          .getConstructor()
-          .newInstance();
-    } catch (NoSuchMethodException e) {
+    if (cacheLoaderClazz.getSimpleName().equals(
+        MemoryMappableBlockLoader.class.getSimpleName())) {
+      // Thus pmem will not be considered in calculating cache capacity
+      this.maxBytesPmem = 0L;
+      this.mappableBlockLoader = new MemoryMappableBlockLoader(this);
+    } else {
+      // Currently, persistent memory can only be used in HDFS Cache
+      // by a FileMappableBlockLoader.
+      this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
       try {
         // Try to instantiate a FileMappableBlockLoader
         this.mappableBlockLoader = cacheLoaderClazz
-            .getConstructor(FsDatasetImpl.class)
-            .newInstance(dataset);
+            .getConstructor(FsDatasetCache.class, FsDatasetImpl.class)
+            .newInstance(this, dataset);
       } catch (ReflectiveOperationException ex) {
         LOG.error("Failed to instantiate MappableBlockLoader!", ex);
       }
-    }
-    catch (ReflectiveOperationException e) {
-      LOG.error("Failed to instantiate MappableBlockLoader!", e);
     }
   }
 
@@ -439,6 +490,29 @@ public class FsDatasetCache {
   }
 
   /**
+   * Try to reserve more bytes on persistent memory.
+   *
+   * @param count    The number of bytes to add.
+   *
+   * @return         The new number of usedBytes if we succeeded;
+   *                 -1 if we failed.
+   */
+  long reservePmem(long count) {
+    return pmemUsedBytesCount.reserve(count);
+  }
+
+  /**
+   * Release some bytes that we're using on persistent memory.
+   *
+   * @param count    The number of bytes to release.
+   *
+   * @return         The new number of usedBytes.
+   */
+  long releasePmem(long count) {
+    return pmemUsedBytesCount.release(count);
+  }
+
+  /**
    * Background worker that mmaps, mlocks, and checksums a block
    */
   private class CachingTask implements Runnable {
@@ -461,14 +535,14 @@ public class FsDatasetCache {
       MappableBlock mappableBlock = null;
       ExtendedBlock extBlk = new ExtendedBlock(key.getBlockPoolId(),
           key.getBlockId(), length, genstamp);
-      long newUsedBytes = reserve(length);
+      long newUsedBytes = mappableBlockLoader.reserve(length);
       boolean reservedBytes = false;
       try {
         if (newUsedBytes < 0) {
           LOG.warn("Failed to cache " + key + ": could not reserve " + length +
               " more bytes in the cache: " +
-              DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY +
-              " of " + maxBytes + " exceeded.");
+              mappableBlockLoader.getCacheCapacityConfigKey() +
+              " of " + mappableBlockLoader.getMaxBytes() + " exceeded.");
           return;
         }
         reservedBytes = true;
@@ -529,7 +603,7 @@ public class FsDatasetCache {
         IOUtils.closeQuietly(metaIn);
         if (!success) {
           if (reservedBytes) {
-            release(length);
+            mappableBlockLoader.release(length);
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
                   + "bytes in total.", key, usedBytesCount.get());
@@ -606,7 +680,8 @@ public class FsDatasetCache {
       synchronized (FsDatasetCache.this) {
         mappableBlockMap.remove(key);
       }
-      long newUsedBytes = release(value.mappableBlock.getLength());
+      long newUsedBytes = mappableBlockLoader.release(
+          value.mappableBlock.getLength());
       numBlocksCached.addAndGet(-1);
       dataset.datanode.getMetrics().incrBlocksUncached(1);
       if (revocationTimeMs != 0) {
@@ -625,14 +700,22 @@ public class FsDatasetCache {
    * Get the approximate amount of cache space used.
    */
   public long getCacheUsed() {
-    return usedBytesCount.get();
+    return usedBytesCount.get() + pmemUsedBytesCount.get();
   }
 
   /**
    * Get the maximum amount of bytes we can cache.  This is a constant.
    */
   public long getCacheCapacity() {
+    return maxBytes + maxBytesPmem;
+  }
+
+  public long getMaxBytes() {
     return maxBytes;
+  }
+
+  public long getMaxBytesPem() {
+    return maxBytesPmem;
   }
 
   public long getNumBlocksFailedToCache() {

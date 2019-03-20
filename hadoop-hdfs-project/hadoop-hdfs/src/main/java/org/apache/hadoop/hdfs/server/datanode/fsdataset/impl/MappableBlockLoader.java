@@ -77,4 +77,33 @@ public abstract class MappableBlockLoader {
     }
     return bytesRead;
   }
+
+  /**
+   * Get the config key of cache capacity.
+   */
+  public abstract String getCacheCapacityConfigKey();
+
+  /**
+   * Get the maximum amount of bytes a specific MappableBlock can cache.
+   */
+  public abstract long getMaxBytes();
+
+  /**
+   * Try to reserve some given bytes.
+   *
+   * @param count    The number of bytes to add.
+   *
+   * @return         The new number of usedBytes if we succeeded;
+   *                 -1 if we failed.
+   */
+  abstract long reserve(long count);
+
+  /**
+   * Release some bytes that we're using.
+   *
+   * @param count    The number of bytes to release.
+   *
+   * @return         The new number of usedBytes.
+   */
+  abstract long release(long count);
 }

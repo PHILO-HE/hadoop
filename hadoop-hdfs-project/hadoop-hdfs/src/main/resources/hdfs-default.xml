@@ -2556,6 +2556,17 @@
 </property>
 
 <property>
+  <name>dfs.datanode.cache.pmem.capacity</name>
+  <value>0</value>
+  <description>
+    The amout of persistent memory in bytes for caching block replica to persistent
+    memory.
+
+    By default, this parameter is 0, which disables persistent memory caching.
+  </description>
+</property>
+
+<property>
   <name>dfs.datanode.cache.pmem.dirs</name>
   <value></value>
   <description>

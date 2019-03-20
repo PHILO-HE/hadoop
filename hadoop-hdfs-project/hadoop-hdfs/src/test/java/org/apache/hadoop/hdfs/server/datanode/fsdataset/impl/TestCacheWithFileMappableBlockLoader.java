@@ -18,8 +18,8 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_CLASS;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -123,7 +123,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
             "fsdataset.impl.FileMappableBlockLoader");
     // Set two persistent memory directories for HDFS cache
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, pmem0 + "," + pmem1);
-    myConf.setLong(DFS_DATANODE_MAX_LOCKED_MEMORY_KEY, CACHE_CAPACITY);
+    myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
     MiniDFSCluster myCluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(1).build();
@@ -158,7 +158,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
         "org.apache.hadoop.hdfs.server.datanode." +
             "fsdataset.impl.FileMappableBlockLoader");
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
-    myConf.setLong(DFS_DATANODE_MAX_LOCKED_MEMORY_KEY, CACHE_CAPACITY);
+    myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(NUM_DATANODES).build();
@@ -261,7 +261,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
         "org.apache.hadoop.hdfs.server.datanode." +
             "fsdataset.impl.FileMappableBlockLoader");
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
-    myConf.setLong(DFS_DATANODE_MAX_LOCKED_MEMORY_KEY, CACHE_CAPACITY);
+    myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
         .numDataNodes(NUM_DATANODES).build();

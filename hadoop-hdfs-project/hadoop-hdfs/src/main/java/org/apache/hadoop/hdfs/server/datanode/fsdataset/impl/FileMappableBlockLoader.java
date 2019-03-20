@@ -54,14 +54,16 @@ import java.util.UUID;
 public class FileMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(FileMappableBlockLoader.class);
-  private final ArrayList<String> pmemVolumes = new ArrayList<>();
+  private FsDatasetCache cacheManager;
   private final FsDatasetImpl dataset;
+  private final ArrayList<String> pmemVolumes = new ArrayList<>();
   private int count = 0;
   // Strict atomic operation is not guaranteed for the performance sake.
   private int index = 0;
 
-  public FileMappableBlockLoader(FsDatasetImpl dataset)
-      throws IOException {
+  public FileMappableBlockLoader(FsDatasetCache cacheManager,
+                                 FsDatasetImpl dataset) throws IOException {
+    this.cacheManager = cacheManager;
     this.dataset = dataset;
     String[] pmemVolumesConfigured =
         dataset.datanode.getDnConf().getPmemVolumes();
@@ -286,5 +288,25 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
+  }
+
+  @Override
+  public String getCacheCapacityConfigKey() {
+    return DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
+  }
+
+  @Override
+  public long getMaxBytes() {
+    return cacheManager.getMaxBytesPem();
+  }
+
+  @Override
+  long reserve(long count) {
+    return cacheManager.reservePmem(count);
+  }
+
+  @Override
+  long release(long count) {
+    return cacheManager.releasePmem(count);
   }
 }
