@@ -704,10 +704,24 @@ public class FsDatasetCache {
   }
 
   /**
+   * Get the approximate amount of memory cache space used.
+   */
+  public long getMemoryCacheUsed() {
+    return usedBytesCount.get();
+  }
+
+  /**
    * Get the maximum amount of bytes we can cache.  This is a constant.
    */
   public long getCacheCapacity() {
     return maxBytes + maxBytesPmem;
+  }
+
+  /**
+   * Get cache capacity of memory.
+   */
+  public long getMemoryCacheCapacity() {
+    return maxBytes;
   }
 
   public long getMaxBytes() {
