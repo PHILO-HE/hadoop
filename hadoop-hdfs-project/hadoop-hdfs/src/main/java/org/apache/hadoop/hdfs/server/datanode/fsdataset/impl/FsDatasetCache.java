@@ -335,10 +335,10 @@ public class FsDatasetCache {
       this.mappableBlockLoader = new MemoryMappableBlockLoader(this);
     } else {
       // Currently, persistent memory can only be used in HDFS Cache
-      // by a FileMappableBlockLoader.
+      // by PmemMappableBlockLoader.
       this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
       try {
-        // Try to instantiate a FileMappableBlockLoader
+        // Try to instantiate a PmemMappableBlockLoader
         this.mappableBlockLoader = cacheLoaderClazz
             .getConstructor(FsDatasetCache.class, FsDatasetImpl.class)
             .newInstance(this, dataset);
@@ -728,7 +728,7 @@ public class FsDatasetCache {
     return maxBytes;
   }
 
-  public long getMaxBytesPem() {
+  public long getMaxBytesPmem() {
     return maxBytesPmem;
   }
 

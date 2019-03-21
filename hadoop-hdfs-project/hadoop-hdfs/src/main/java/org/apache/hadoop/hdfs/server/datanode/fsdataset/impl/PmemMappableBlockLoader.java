@@ -47,13 +47,12 @@ import java.util.UUID;
 /**
  * Map block to persistent memory by using mapped byte buffer.
  *
- * TODO: Refine location selection policy by considering storage utilization
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class FileMappableBlockLoader extends MappableBlockLoader {
+public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
-      LoggerFactory.getLogger(FileMappableBlockLoader.class);
+      LoggerFactory.getLogger(PmemMappableBlockLoader.class);
   private FsDatasetCache cacheManager;
   private final FsDatasetImpl dataset;
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
@@ -61,7 +60,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
   // Strict atomic operation is not guaranteed for the performance sake.
   private int index = 0;
 
-  public FileMappableBlockLoader(FsDatasetCache cacheManager,
+  public PmemMappableBlockLoader(FsDatasetCache cacheManager,
                                  FsDatasetImpl dataset) throws IOException {
     this.cacheManager = cacheManager;
     this.dataset = dataset;
@@ -77,6 +76,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
 
   /**
    * Load and verify the configured pmem volumes.
+   *
+   * @throws IOException   If there is no available pmem volume.
    */
   private void loadVolumes(String[] volumes) throws IOException {
     // Check whether the directory exists
@@ -87,17 +88,24 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
         // Remove all files under the volume.
         FileUtils.cleanDirectory(pmemDir);
       } catch (IllegalArgumentException e) {
-        throw new IOException(
-            "Failed to parse persistent memory volume " + volume, e);
+        LOG.error("Failed to parse persistent memory volume " + volume, e);
+        continue;
+      } catch (IOException e) {
+        LOG.error("Bad persistent memory volume: " + volume, e);
+        continue;
       }
       pmemVolumes.add(volume);
       LOG.info("Added persistent memory - " + volume);
     }
     count = pmemVolumes.size();
+    if (count == 0) {
+      throw new IOException(
+          "At least one valid persistent memory volume is required!");
+    }
   }
 
   @VisibleForTesting
-  public static void verifyIfValidPmemVolume(File pmemDir)
+  static void verifyIfValidPmemVolume(File pmemDir)
       throws IOException {
     if (!pmemDir.exists()) {
       final String message = pmemDir + " does not exist";
@@ -148,6 +156,8 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
   /**
    * Choose a persistent memory location based on a specific algorithm.
    * Currently it is a round-robin policy.
+   *
+   * TODO: Refine location selection policy by considering storage utilization.
    */
   public String getOneLocation() {
     if (count != 0) {
@@ -183,7 +193,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
                             ExtendedBlockId key)
       throws IOException {
 
-    FileMappedBlock mappableBlock = null;
+    PmemMappedBlock mappableBlock = null;
     String filePath = null;
 
     FileChannel blockChannel = null;
@@ -206,7 +216,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
       }
       verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
           blockFileName);
-      mappableBlock = new FileMappedBlock(out, length, filePath, key, dataset);
+      mappableBlock = new PmemMappedBlock(out, length, filePath, key, dataset);
       LOG.info("MappableBlock [length = " + length +
           ", path = " + filePath + "] is loaded into persistent memory");
     } finally {
@@ -297,7 +307,7 @@ public class FileMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getMaxBytes() {
-    return cacheManager.getMaxBytesPem();
+    return cacheManager.getMaxBytesPmem();
   }
 
   @Override

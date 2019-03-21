@@ -68,7 +68,7 @@ import net.jcip.annotations.NotThreadSafe;
  * Test HDFS cache using non-volatile storage class memory.
  */
 @NotThreadSafe
-public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
+public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
   private static final String PMEM_DIR = MiniDFSCluster.getBaseDirectory() + "/pmem";
 
   static {
@@ -95,7 +95,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     File pmem = new File(PMEM_DIR).getAbsoluteFile();
     pmem.mkdirs();
     try {
-      FileMappableBlockLoader.verifyIfValidPmemVolume(new File(PMEM_DIR));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(PMEM_DIR));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -109,8 +109,8 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     String pmem0 = "/mnt/pmem0";
     String pmem1 = "/mnt/pmem1";
     try {
-      FileMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem0));
-      FileMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem1));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem0));
+      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem1));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -120,7 +120,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
-            "fsdataset.impl.FileMappableBlockLoader");
+            "fsdataset.impl.PmemMappableBlockLoader");
     // Set two persistent memory directories for HDFS cache
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, pmem0 + "," + pmem1);
     myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
@@ -131,12 +131,12 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     DataNode dataNode = myCluster.getDataNodes().get(0);
     MappableBlockLoader loader = ((FsDatasetImpl)dataNode.getFSDataset())
         .cacheManager.getMappableBlockLoader();
-    assertTrue(loader instanceof FileMappableBlockLoader);
-    assertNotNull(((FileMappableBlockLoader)loader).getOneLocation());
+    assertTrue(loader instanceof PmemMappableBlockLoader);
+    assertNotNull(((PmemMappableBlockLoader)loader).getOneLocation());
     // Test round-robin selection policy
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      String location = ((FileMappableBlockLoader)loader).getOneLocation();
+      String location = ((PmemMappableBlockLoader)loader).getOneLocation();
       if (location.startsWith(pmem0)) {
         count1++;
       } else if (location.startsWith(pmem1)) {
@@ -156,7 +156,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
-            "fsdataset.impl.FileMappableBlockLoader");
+            "fsdataset.impl.PmemMappableBlockLoader");
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
     myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
@@ -259,7 +259,7 @@ public class TestCacheWithFileMappableBlockLoader extends TestFsDatasetCache {
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
-            "fsdataset.impl.FileMappableBlockLoader");
+            "fsdataset.impl.PmemMappableBlockLoader");
     myConf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR);
     myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 

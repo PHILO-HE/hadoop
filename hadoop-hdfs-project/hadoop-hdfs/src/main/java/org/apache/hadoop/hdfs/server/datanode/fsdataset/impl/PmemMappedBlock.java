@@ -35,16 +35,16 @@ import java.nio.MappedByteBuffer;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class FileMappedBlock implements MappableBlock {
+public class PmemMappedBlock implements MappableBlock {
   private static final Logger LOG =
-      LoggerFactory.getLogger(FileMappedBlock.class);
+      LoggerFactory.getLogger(PmemMappedBlock.class);
   private final FsDatasetImpl dataset;
   private MappedByteBuffer mmap;
   private long length;
   private String filePath = null;
   private ExtendedBlockId key;
 
-  FileMappedBlock(MappedByteBuffer mmap, long length, String filePath,
+  PmemMappedBlock(MappedByteBuffer mmap, long length, String filePath,
                   ExtendedBlockId key, FsDatasetImpl dataset) {
     assert length > 0;
     this.mmap = mmap;
