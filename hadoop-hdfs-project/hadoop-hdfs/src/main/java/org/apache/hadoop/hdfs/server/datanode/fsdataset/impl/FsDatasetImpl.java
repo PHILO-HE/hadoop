@@ -3140,7 +3140,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       final long cacheCapacity = cacheManager.getMemoryCacheCapacity();
 
       while (iterations++ < MAX_BLOCK_EVICTIONS_PER_ITERATION &&
-             (cacheCapacity - cacheManager.getMemoryCacheUsed()) < bytesNeeded) {
+          (cacheCapacity - cacheManager.getMemoryCacheUsed()) < bytesNeeded) {
         RamDiskReplica replicaState = ramDiskReplicaTracker.getNextCandidateForEviction();
 
         if (replicaState == null) {

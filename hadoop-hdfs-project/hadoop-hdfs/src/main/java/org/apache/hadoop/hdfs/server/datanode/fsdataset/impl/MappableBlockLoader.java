@@ -91,19 +91,19 @@ public abstract class MappableBlockLoader {
   /**
    * Try to reserve some given bytes.
    *
-   * @param count    The number of bytes to add.
+   * @param bytesCount    The number of bytes to add.
    *
    * @return         The new number of usedBytes if we succeeded;
    *                 -1 if we failed.
    */
-  abstract long reserve(long count);
+  abstract long reserve(long bytesCount);
 
   /**
    * Release some bytes that we're using.
    *
-   * @param count    The number of bytes to release.
+   * @param bytesCount    The number of bytes to release.
    *
    * @return         The new number of usedBytes.
    */
-  abstract long release(long count);
+  abstract long release(long bytesCount);
 }

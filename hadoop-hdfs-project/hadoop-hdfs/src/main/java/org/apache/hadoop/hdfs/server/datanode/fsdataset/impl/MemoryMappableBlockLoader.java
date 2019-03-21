@@ -157,12 +157,12 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  long reserve(long count) {
-    return cacheManager.reserve(count);
+  long reserve(long bytesCount) {
+    return cacheManager.reserve(bytesCount);
   }
 
   @Override
-  long release(long count) {
-    return cacheManager.release(count);
+  long release(long bytesCount) {
+    return cacheManager.release(bytesCount);
   }
 }

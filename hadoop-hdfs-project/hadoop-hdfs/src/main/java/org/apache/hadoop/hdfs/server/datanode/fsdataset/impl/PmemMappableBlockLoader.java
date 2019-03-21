@@ -311,12 +311,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  long reserve(long count) {
-    return cacheManager.reservePmem(count);
+  long reserve(long bytesCount) {
+    return cacheManager.reservePmem(bytesCount);
   }
 
   @Override
-  long release(long count) {
-    return cacheManager.releasePmem(count);
+  long release(long bytesCount) {
+    return cacheManager.releasePmem(bytesCount);
   }
 }
