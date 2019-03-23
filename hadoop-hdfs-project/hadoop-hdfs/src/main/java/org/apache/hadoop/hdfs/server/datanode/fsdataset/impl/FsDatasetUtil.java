@@ -124,9 +124,7 @@ public class FsDatasetUtil {
     RandomAccessFile raf = null;
     try {
       raf = new RandomAccessFile(file, "r");
-      if (offset > 0) {
-        raf.seek(offset);
-      }
+      raf.seek(offset);
       return Channels.newInputStream(raf.getChannel());
     } catch(IOException ioe) {
       IOUtils.cleanupWithLogger(null, raf);
@@ -203,15 +201,17 @@ public class FsDatasetUtil {
   }
 
   public static void deleteMappedFile(String filePath) throws IOException {
+    if (filePath == null) {
+      throw new IOException("The filePath should not be null!");
+    }
     try {
-      if (filePath != null) {
-        boolean result = Files.deleteIfExists(Paths.get(filePath));
-        if (!result) {
-          throw new IOException();
-        }
+      boolean result = Files.deleteIfExists(Paths.get(filePath));
+      if (!result) {
+        throw new IOException();
       }
-    } catch (Throwable e) {
-      throw new IOException("Failed to delete the mapped file: " + filePath);
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to delete the mapped file: " + filePath, e);
     }
   }
 }

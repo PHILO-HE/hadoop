@@ -118,7 +118,7 @@ public class DNConf {
   final long xceiverStopTimeout;
   final long restartReplicaExpiry;
 
-  private final Class<? extends MappableBlockLoader> cacheLoaderClazz;
+  private final Class<? extends MappableBlockLoader> cacheLoaderClass;
   final long maxLockedMemory;
   private final long maxLockedPmem;
   private final String[] pmemDirs;
@@ -260,7 +260,7 @@ public class DNConf {
         DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_KEY,
         DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_DEFAULT);
 
-    this.cacheLoaderClazz = getConf().getClass(DFS_DATANODE_CACHE_LOADER_CLASS,
+    this.cacheLoaderClass = getConf().getClass(DFS_DATANODE_CACHE_LOADER_CLASS,
         DFS_DATANODE_CACHE_LOADER_CLASS_DEFAULT, MappableBlockLoader.class);
 
     this.maxLockedMemory = getConf().getLongBytes(
@@ -442,8 +442,8 @@ public class DNConf {
     return maxDataLength;
   }
 
-  public Class<? extends MappableBlockLoader> getCacheLoaderClazz() {
-    return cacheLoaderClazz;
+  public Class<? extends MappableBlockLoader> getCacheLoaderClass() {
+    return cacheLoaderClass;
   }
 
   public String[] getPmemVolumes() {

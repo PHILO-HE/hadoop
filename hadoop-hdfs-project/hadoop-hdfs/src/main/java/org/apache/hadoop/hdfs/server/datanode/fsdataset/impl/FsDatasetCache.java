@@ -326,26 +326,32 @@ public class FsDatasetCache {
     // Currently, user can only choose one MappableBlockLoader to cache data.
     // So either memory or persistent memory will be served as cache region
     // for a DataNode.
-    Class<? extends MappableBlockLoader> cacheLoaderClazz =
-        dataset.datanode.getDnConf().getCacheLoaderClazz();
-    if (cacheLoaderClazz.getSimpleName().equals(
-        MemoryMappableBlockLoader.class.getSimpleName())) {
+    Class<? extends MappableBlockLoader> cacheLoaderClass =
+        dataset.datanode.getDnConf().getCacheLoaderClass();
+    if (!isPmemCacheEnabled(cacheLoaderClass)) {
       // Thus pmem will not be considered in calculating cache capacity
       this.maxBytesPmem = 0L;
       this.mappableBlockLoader = new MemoryMappableBlockLoader(this);
-    } else {
-      // Currently, persistent memory can only be used in HDFS Cache
-      // by PmemMappableBlockLoader.
-      this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
-      try {
-        // Try to instantiate a PmemMappableBlockLoader
-        this.mappableBlockLoader = cacheLoaderClazz
-            .getConstructor(FsDatasetCache.class, FsDatasetImpl.class)
-            .newInstance(this, dataset);
-      } catch (ReflectiveOperationException ex) {
-        LOG.error("Failed to instantiate MappableBlockLoader!", ex);
-      }
+      return;
     }
+    // Currently, persistent memory can only be used in HDFS Cache
+    // by PmemMappableBlockLoader.
+    this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
+    try {
+      // Try to instantiate a PmemMappableBlockLoader
+      this.mappableBlockLoader = cacheLoaderClass
+          .getConstructor(FsDatasetCache.class, FsDatasetImpl.class)
+          .newInstance(this, dataset);
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(
+          "Failed to instantiate MappableBlockLoader!", e);
+    }
+  }
+
+  public boolean isPmemCacheEnabled(
+      Class<? extends MappableBlockLoader> cacheLoaderClass) {
+    return cacheLoaderClass.getName().equals(
+        PmemMappableBlockLoader.class.getName());
   }
 
   /**
@@ -576,7 +582,7 @@ public class FsDatasetCache {
         try {
           mappableBlock.afterCache();
         } catch (IOException e) {
-          LOG.error(e.getMessage());
+          LOG.warn(e.getMessage());
           return;
         }
 

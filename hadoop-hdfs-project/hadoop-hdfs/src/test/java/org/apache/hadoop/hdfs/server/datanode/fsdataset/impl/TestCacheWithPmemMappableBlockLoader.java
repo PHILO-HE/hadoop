@@ -69,7 +69,8 @@ import net.jcip.annotations.NotThreadSafe;
  */
 @NotThreadSafe
 public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
-  private static final String PMEM_DIR = MiniDFSCluster.getBaseDirectory() + "/pmem";
+  private static final String PMEM_DIR =
+      MiniDFSCluster.getBaseDirectory() + "/pmem";
 
   static {
     LogManager.getLogger(FsDatasetCache.class).setLevel(Level.DEBUG);
@@ -152,7 +153,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
   @Test(timeout=120000)
   public void testWaitForCachedReplicas() throws Exception {
     shutdownCluster();
-    final int NUM_DATANODES = 2;
+    final int numDataNodes = 2;
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
@@ -161,7 +162,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
-        .numDataNodes(NUM_DATANODES).build();
+        .numDataNodes(numDataNodes).build();
     cluster.waitActive();
 
     FileSystemTestHelper helper = new FileSystemTestHelper();
@@ -172,7 +173,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
       @Override
       public Boolean get() {
         return ((namenode.getNamesystem().getCacheCapacity() ==
-            (NUM_DATANODES * CACHE_CAPACITY)) &&
+            (numDataNodes * CACHE_CAPACITY)) &&
               (namenode.getNamesystem().getCacheUsed() == 0));
       }
     }, 500, 60000);
@@ -219,7 +220,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
 
     // Check that the datanodes have the right cache values
     DatanodeInfo[] live = dfs.getDataNodeStats(DatanodeReportType.LIVE);
-    assertEquals("Unexpected number of live nodes", NUM_DATANODES,
+    assertEquals("Unexpected number of live nodes", numDataNodes,
         live.length);
     long totalUsed = 0;
     for (DatanodeInfo dn : live) {
@@ -255,7 +256,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
   @Test(timeout=120000)
   public void testWriteRead() throws Exception {
     shutdownCluster();
-    int NUM_DATANODES = 2;
+    final int numDataNodes = 2;
     Configuration myConf = new HdfsConfiguration();
     myConf.set(DFS_DATANODE_CACHE_LOADER_CLASS,
         "org.apache.hadoop.hdfs.server.datanode." +
@@ -264,7 +265,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     myConf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
 
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(myConf)
-        .numDataNodes(NUM_DATANODES).build();
+        .numDataNodes(numDataNodes).build();
     cluster.waitActive();
 
     FileSystemTestHelper helper = new FileSystemTestHelper();
@@ -275,7 +276,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
       @Override
       public Boolean get() {
         return ((namenode.getNamesystem().getCacheCapacity() ==
-            (NUM_DATANODES * CACHE_CAPACITY)) &&
+            (numDataNodes * CACHE_CAPACITY)) &&
               (namenode.getNamesystem().getCacheUsed() == 0));
       }
     }, 500, 60000);

@@ -159,11 +159,11 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    *
    * TODO: Refine location selection policy by considering storage utilization.
    */
-  public String getOneLocation() {
+  public String getOneLocation() throws IOException {
     if (count != 0) {
       return pmemVolumes.get(index++ % count);
     } else {
-      throw new RuntimeException("No usable persistent memory are found");
+      throw new IOException("No usable persistent memory is found");
     }
   }
 
@@ -245,7 +245,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
-
     BlockMetadataHeader header =
         BlockMetadataHeader.readHeader(new DataInputStream(
             new BufferedInputStream(metaIn, BlockMetadataHeader
