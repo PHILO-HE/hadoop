@@ -96,7 +96,7 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     File pmem = new File(PMEM_DIR).getAbsoluteFile();
     pmem.mkdirs();
     try {
-      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(PMEM_DIR));
+      PmemVolumeManager.verifyIfValidPmemVolume(new File(PMEM_DIR));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -110,8 +110,8 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     String pmem0 = "/mnt/pmem0";
     String pmem1 = "/mnt/pmem1";
     try {
-      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem0));
-      PmemMappableBlockLoader.verifyIfValidPmemVolume(new File(pmem1));
+      PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem0));
+      PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem1));
     } catch (Throwable t) {
       LogManager.getLogger(FsDatasetCache.class).warn(
           "Skip Pmem Cache test due to: " + t.getMessage());
@@ -133,11 +133,14 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     MappableBlockLoader loader = ((FsDatasetImpl)dataNode.getFSDataset())
         .cacheManager.getMappableBlockLoader();
     assertTrue(loader instanceof PmemMappableBlockLoader);
-    assertNotNull(((PmemMappableBlockLoader)loader).getOneLocation());
+    PmemVolumeManager pmemVolumeManager =
+        ((PmemMappableBlockLoader) loader).getPmemVolumeManager();
+    assertNotNull(pmemVolumeManager);
+    assertNotNull(pmemVolumeManager.getOneLocation());
     // Test round-robin selection policy
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      String location = ((PmemMappableBlockLoader)loader).getOneLocation();
+      String location = pmemVolumeManager.getOneLocation();
       if (location.startsWith(pmem0)) {
         count1++;
       } else if (location.startsWith(pmem1)) {

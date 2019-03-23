@@ -278,7 +278,7 @@ public class FsDatasetCache {
    */
   private final long maxBytesPmem;
 
-  private MappableBlockLoader mappableBlockLoader;
+  private final MappableBlockLoader mappableBlockLoader;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -323,35 +323,31 @@ public class FsDatasetCache {
     }
     this.revocationPollingMs = confRevocationPollingMs;
 
-    // Currently, user can only choose one MappableBlockLoader to cache data.
-    // So either memory or persistent memory will be served as cache region
-    // for a DataNode.
     Class<? extends MappableBlockLoader> cacheLoaderClass =
         dataset.datanode.getDnConf().getCacheLoaderClass();
-    if (!isPmemCacheEnabled(cacheLoaderClass)) {
-      // Thus pmem will not be considered in calculating cache capacity
-      this.maxBytesPmem = 0L;
-      this.mappableBlockLoader = new MemoryMappableBlockLoader(this);
-      return;
-    }
-    // Currently, persistent memory can only be used in HDFS Cache
-    // by PmemMappableBlockLoader.
-    this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
     try {
-      // Try to instantiate a PmemMappableBlockLoader
       this.mappableBlockLoader = cacheLoaderClass
-          .getConstructor(FsDatasetCache.class, FsDatasetImpl.class)
-          .newInstance(this, dataset);
+          .getConstructor(FsDatasetCache.class)
+          .newInstance(this);
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException(
           "Failed to instantiate MappableBlockLoader!", e);
     }
+
+    if (!isPmemCacheEnabled()) {
+      // Thus pmem will not be considered in calculating cache capacity
+      this.maxBytesPmem = 0L;
+    } else {
+      this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
+    }
   }
 
-  public boolean isPmemCacheEnabled(
-      Class<? extends MappableBlockLoader> cacheLoaderClass) {
-    return cacheLoaderClass.getName().equals(
-        PmemMappableBlockLoader.class.getName());
+  public boolean isPmemCacheEnabled() {
+    return mappableBlockLoader instanceof PmemMappableBlockLoader;
+  }
+
+  public FsDatasetImpl getDataset() {
+    return this.dataset;
   }
 
   /**
