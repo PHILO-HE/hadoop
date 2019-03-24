@@ -25,6 +25,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
@@ -50,13 +51,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
   private final FsDatasetCache cacheManager;
   private final PmemVolumeManager pmemVolumeManager;
-  private final FsDatasetImpl dataset;
 
   public PmemMappableBlockLoader(
       FsDatasetCache cacheManager) throws IOException {
     this.cacheManager = cacheManager;
-    this.dataset = cacheManager.getDataset();
-    this.pmemVolumeManager = new PmemVolumeManager(dataset);
+    DNConf dnConf = cacheManager.getDataset().datanode.getDnConf();
+    this.pmemVolumeManager = new PmemVolumeManager(dnConf);
   }
 
   public PmemVolumeManager getPmemVolumeManager() {
@@ -101,7 +101,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
         throw new IOException("Block InputStream has no FileChannel.");
       }
 
-      filePath = pmemVolumeManager.generateCacheFilePath(key);
+      Byte volumeIndex = pmemVolumeManager.getOneVolumeIndex();
+      filePath = pmemVolumeManager.inferCacheFilePath(key, volumeIndex);
       file = new RandomAccessFile(filePath, "rw");
       out = file.getChannel().
           map(FileChannel.MapMode.READ_WRITE, 0, length);
@@ -111,7 +112,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
           blockFileName);
-      mappableBlock = new PmemMappedBlock(out, length, filePath, key, dataset);
+      mappableBlock = new PmemMappedBlock(
+          out, length, volumeIndex, key, pmemVolumeManager);
       LOG.info("MappableBlock [length = " + length +
           ", path = " + filePath + "] is loaded into persistent memory");
     } finally {
@@ -201,7 +203,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getMaxBytes() {
-    return cacheManager.getMaxBytesPmem();
+    return cacheManager.getPmemMaxBytes();
   }
 
   @Override

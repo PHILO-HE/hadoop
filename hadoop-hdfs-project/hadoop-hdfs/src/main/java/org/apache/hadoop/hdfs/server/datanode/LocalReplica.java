@@ -247,9 +247,9 @@ abstract public class LocalReplica extends ReplicaInfo {
     return true;
   }
 
-  private InputStream getDataInputStreamforPmem(String path, long seekoffset)
+  public InputStream getDataInputStreamfromPmem(String cachePath, long seekoffset)
       throws IOException {
-    return FsDatasetUtil.getInputStreamAndSeek(new File(path), seekoffset);
+    return FsDatasetUtil.getInputStreamAndSeek(new File(cachePath), seekoffset);
   }
 
   @Override
@@ -259,11 +259,7 @@ abstract public class LocalReplica extends ReplicaInfo {
 
   @Override
   public InputStream getDataInputStream(long seekOffset) throws IOException {
-    if (getCacheFilePath() != null) {
-      return getDataInputStreamforPmem(getCacheFilePath(), seekOffset);
-    } else {
-      return getDataInputStream(getBlockFile(), seekOffset);
-    }
+    return getDataInputStream(getBlockFile(), seekOffset);
   }
 
   @Override

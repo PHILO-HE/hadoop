@@ -342,12 +342,32 @@ public class FsDatasetCache {
     }
   }
 
+  /**
+   * Check if pmem cache is enabled.
+   *
+   * If new cache loader is implemented for pmem
+   * cache, this method should also consider it.
+   */
   public boolean isPmemCacheEnabled() {
     return mappableBlockLoader instanceof PmemMappableBlockLoader;
   }
 
   public FsDatasetImpl getDataset() {
     return this.dataset;
+  }
+
+  /**
+   * Get the cache path if the replica is cached into persistent memory.
+   */
+  public String getReplicaCachPath(String bpid, long blockId) {
+    if (!isPmemCacheEnabled() || !isCached(bpid, blockId)) {
+      return null;
+    }
+    ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
+    String cachePath = ((PmemMappableBlockLoader)mappableBlockLoader)
+        .getPmemVolumeManager()
+        .getCachedFilePath(key);
+    return cachePath;
   }
 
   /**
@@ -699,38 +719,40 @@ public class FsDatasetCache {
   // Stats related methods for FSDatasetMBean
 
   /**
-   * Get the approximate amount of cache space used.
+   * Get the approximate amount of DRAM cache space used.
    */
   public long getCacheUsed() {
-    return usedBytesCount.get() + pmemUsedBytesCount.get();
-  }
-
-  /**
-   * Get the approximate amount of memory cache space used.
-   */
-  public long getMemoryCacheUsed() {
     return usedBytesCount.get();
   }
 
   /**
-   * Get the maximum amount of bytes we can cache.  This is a constant.
+   * Get the approximate amount of persistent memory cache space used.
+   * TODO: advertise this metric to NameNode by FSDatasetMBean
    */
-  public long getCacheCapacity() {
-    return maxBytes + maxBytesPmem;
+  public long getPmemCacheUsed() {
+    return pmemUsedBytesCount.get();
   }
 
   /**
-   * Get cache capacity of memory.
+   * Get the maximum amount of bytes we can cache on DRAM. This is a constant.
    */
-  public long getMemoryCacheCapacity() {
+  public long getCacheCapacity() {
     return maxBytes;
+  }
+
+  /**
+   * Get cache capacity of persistent memory.
+   * TODO: advertise this metric to NameNode by FSDatasetMBean
+   */
+  public long getPmemCacheCapacity() {
+    return maxBytesPmem;
   }
 
   public long getMaxBytes() {
     return maxBytes;
   }
 
-  public long getMaxBytesPmem() {
+  public long getPmemMaxBytes() {
     return maxBytesPmem;
   }
 

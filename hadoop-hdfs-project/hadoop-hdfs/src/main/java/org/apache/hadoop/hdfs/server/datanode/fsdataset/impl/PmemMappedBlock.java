@@ -21,7 +21,6 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,20 +37,20 @@ import java.nio.MappedByteBuffer;
 public class PmemMappedBlock implements MappableBlock {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappedBlock.class);
-  private final FsDatasetImpl dataset;
+  private final PmemVolumeManager pmemVolumeManager;
   private MappedByteBuffer mmap;
   private long length;
-  private String filePath = null;
+  private Byte volumeIndex = null;
   private ExtendedBlockId key;
 
-  PmemMappedBlock(MappedByteBuffer mmap, long length, String filePath,
-                  ExtendedBlockId key, FsDatasetImpl dataset) {
+  PmemMappedBlock(MappedByteBuffer mmap, long length, Byte volumeIndex,
+                  ExtendedBlockId key, PmemVolumeManager pmemVolumeManager) {
     assert length > 0;
     this.mmap = mmap;
     this.length = length;
-    this.filePath = filePath;
+    this.volumeIndex = volumeIndex;
     this.key = key;
-    this.dataset = dataset;
+    this.pmemVolumeManager = pmemVolumeManager;
   }
 
   @Override
@@ -61,26 +60,21 @@ public class PmemMappedBlock implements MappableBlock {
 
   @Override
   public void afterCache() throws IOException {
-    try {
-      ReplicaInfo replica = dataset.getBlockReplica(key.getBlockPoolId(),
-          key.getBlockId());
-      replica.setCachePath(filePath);
-    } catch (IOException e) {
-      throw new IOException("Fail to find the replica file of PoolID = " +
-          key.getBlockPoolId() + ", BlockID = " + key.getBlockId(), e);
-    }
+    pmemVolumeManager.afterCache(key, volumeIndex);
   }
 
   @Override
   public void close() {
-    LOG.info("Start to unmap file " + filePath + " with length " + length);
+    pmemVolumeManager.afterUncache(key);
+    String cacheFilePath =
+        pmemVolumeManager.inferCacheFilePath(key, volumeIndex);
+    LOG.info(
+        "Start to unmap file " + cacheFilePath + " with length " + length);
     NativeIO.POSIX.munmap(mmap);
     try {
-      FsDatasetUtil.deleteMappedFile(filePath);
+      FsDatasetUtil.deleteMappedFile(cacheFilePath);
     } catch (IOException e) {
-      LOG.warn("Failed to delete the mapped File: {}!", filePath, e);
-    } finally {
-      filePath = null;
+      LOG.warn("Failed to delete the mapped File: {}!", cacheFilePath, e);
     }
   }
 }

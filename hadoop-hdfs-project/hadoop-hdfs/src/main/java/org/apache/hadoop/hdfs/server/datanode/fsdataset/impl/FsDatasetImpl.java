@@ -787,11 +787,25 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       datanode.getMetrics().incrRamDiskBlocksReadHits();
     }
 
-    if (info != null) {
-      return info.getDataInputStream(seekOffset);
-    } else {
+    if (info == null) {
       throw new IOException("No data exists for block " + b);
     }
+    return getBlockInputStreamWithCheckingPmemCache(info, b, seekOffset);
+  }
+
+  /**
+   * Check whether the replica is cached to persistent memory.
+   * If so, get DataInputStream of the corresponding cache file on pmem.
+   */
+  public InputStream getBlockInputStreamWithCheckingPmemCache(
+      ReplicaInfo info, ExtendedBlock b, long seekOffset) throws IOException {
+    String cachePath = cacheManager.getReplicaCachPath(
+        b.getBlockPoolId(), b.getBlockId());
+    if (cachePath != null && info instanceof LocalReplica) {
+      return ((LocalReplica)info).getDataInputStreamfromPmem(
+          cachePath, seekOffset);
+    }
+    return info.getDataInputStream(seekOffset);
   }
 
   /**
@@ -3137,10 +3151,10 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     public void evictBlocks(long bytesNeeded) throws IOException {
       int iterations = 0;
 
-      final long cacheCapacity = cacheManager.getMemoryCacheCapacity();
+      final long cacheCapacity = cacheManager.getCacheCapacity();
 
       while (iterations++ < MAX_BLOCK_EVICTIONS_PER_ITERATION &&
-          (cacheCapacity - cacheManager.getMemoryCacheUsed()) < bytesNeeded) {
+             (cacheCapacity - cacheManager.getCacheUsed()) < bytesNeeded) {
         RamDiskReplica replicaState = ramDiskReplicaTracker.getNextCandidateForEviction();
 
         if (replicaState == null) {

@@ -136,17 +136,17 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
     PmemVolumeManager pmemVolumeManager =
         ((PmemMappableBlockLoader) loader).getPmemVolumeManager();
     assertNotNull(pmemVolumeManager);
-    assertNotNull(pmemVolumeManager.getOneLocation());
     // Test round-robin selection policy
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      String location = pmemVolumeManager.getOneLocation();
-      if (location.startsWith(pmem0)) {
+      Byte index = pmemVolumeManager.getOneVolumeIndex();
+      String volume = pmemVolumeManager.getVolumeByIndex(index);
+      if (volume.equals(pmem0)) {
         count1++;
-      } else if (location.startsWith(pmem1)) {
+      } else if (volume.equals(pmem1)) {
         count2++;
       } else {
-        fail("Unexpected persistent storage location:" + location);
+        fail("Unexpected persistent storage location:" + volume);
       }
     }
     assertEquals(count1, count2);

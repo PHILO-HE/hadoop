@@ -23,6 +23,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +34,9 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manage the persistent memory volumes.
@@ -42,13 +45,16 @@ public class PmemVolumeManager {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemVolumeManager.class);
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
+  // Maintain which pmem volume a block is cached to.
+  private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
+      new ConcurrentHashMap();
   private int count = 0;
   // Strict atomic operation is not guaranteed for the performance sake.
-  private int index = 0;
+  private int i = 0;
 
-  public PmemVolumeManager(FsDatasetImpl dataset) throws IOException {
+  public PmemVolumeManager(DNConf dnConf) throws IOException {
     String[] pmemVolumesConfigured =
-        dataset.datanode.getDnConf().getPmemVolumes();
+        dnConf.getPmemVolumes();
     if (pmemVolumesConfigured == null || pmemVolumesConfigured.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
@@ -137,34 +143,67 @@ public class PmemVolumeManager {
   }
 
   /**
-   * Choose a persistent memory location based on a specific algorithm.
+   * Choose a persistent memory volume based on a specific algorithm.
    * Currently it is a round-robin policy.
    *
-   * TODO: Refine location selection policy by considering storage utilization.
+   * TODO: Refine volume selection policy by considering storage utilization.
    */
-  public String getOneLocation() throws IOException {
+  public Byte getOneVolumeIndex() throws IOException {
     if (count != 0) {
-      return pmemVolumes.get(index++ % count);
+      return (byte)(i++ % count);
     } else {
       throw new IOException("No usable persistent memory is found");
     }
   }
 
+  @VisibleForTesting
+  public String getVolumeByIndex(Byte index) {
+    return pmemVolumes.get(index);
+  }
+
   /**
    * The cache file is named as BlockPoolId-BlockId.
+   * So its name can be inferred by BlockPoolId and BlockId.
    */
   public String getCacheFileName(ExtendedBlockId key) {
     return key.getBlockPoolId() + "-" + key.getBlockId();
   }
 
   /**
-   * Generate a file path to which the block replica will be mapped.
    * Considering the pmem volume size is below TB level currently,
    * it is tolerable to keep cache files under one directory.
-   * This strategy will be optimized, especially if pmem has huge
-   * cache capacity.
+   * The strategy will be optimized, especially if one pmem volume
+   * has huge cache capacity.
+   *
+   * @Return  a path to which the block replica will be mapped.
    */
-  public String generateCacheFilePath(ExtendedBlockId key) throws IOException {
-    return getOneLocation() + "/" + getCacheFileName(key);
+  public String inferCacheFilePath(ExtendedBlockId key, Byte volumeIndex) {
+    return pmemVolumes.get(volumeIndex) + "/" + getCacheFileName(key);
+  }
+
+  /**
+   * The cached file path is pmemVolume/BlockPoolId-BlockId.
+   */
+  public String getCachedFilePath(ExtendedBlockId key) {
+    Byte volumeIndex = blockKeyToVolume.get(key);
+    if (volumeIndex == null) {
+      return  null;
+    }
+    return inferCacheFilePath(key, volumeIndex);
+  }
+
+  /**
+   * Add the cached block's ExtendedBlockId and the cached volume index
+   * after cache.
+   */
+  public void afterCache(ExtendedBlockId key, Byte volumeIndex) {
+    blockKeyToVolume.put(key, volumeIndex);
+  }
+
+  /**
+   * Remove the record in blockKeyToVolume for uncached block after uncache.
+   */
+  public void afterUncache(ExtendedBlockId key) {
+    blockKeyToVolume.remove(key);
   }
 }
