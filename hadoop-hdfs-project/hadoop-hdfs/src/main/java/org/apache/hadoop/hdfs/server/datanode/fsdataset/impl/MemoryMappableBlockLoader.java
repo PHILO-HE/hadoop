@@ -153,7 +153,7 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getMaxBytes() {
-    return cacheManager.getMaxBytes();
+    return cacheManager.getCacheCapacity();
   }
 
   @Override

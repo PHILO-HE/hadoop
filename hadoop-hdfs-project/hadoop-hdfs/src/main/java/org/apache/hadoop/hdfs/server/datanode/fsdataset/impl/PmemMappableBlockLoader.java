@@ -42,19 +42,16 @@ import java.nio.channels.FileChannel;
 
 /**
  * Map block to persistent memory by using mapped byte buffer.
- *
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
-  private final FsDatasetCache cacheManager;
   private final PmemVolumeManager pmemVolumeManager;
 
   public PmemMappableBlockLoader(
       FsDatasetCache cacheManager) throws IOException {
-    this.cacheManager = cacheManager;
     DNConf dnConf = cacheManager.getDataset().datanode.getDnConf();
     this.pmemVolumeManager = new PmemVolumeManager(dnConf);
   }
@@ -203,16 +200,16 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getMaxBytes() {
-    return cacheManager.getPmemMaxBytes();
+    return pmemVolumeManager.getPmemCacheCapacity();
   }
 
   @Override
   long reserve(long bytesCount) {
-    return cacheManager.reservePmem(bytesCount);
+    return pmemVolumeManager.reservePmem(bytesCount);
   }
 
   @Override
   long release(long bytesCount) {
-    return cacheManager.releasePmem(bytesCount);
+    return pmemVolumeManager.releasePmem(bytesCount);
   }
 }

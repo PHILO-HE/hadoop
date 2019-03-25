@@ -21,6 +21,8 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
@@ -37,17 +39,72 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Manage the persistent memory volumes.
  */
+@InterfaceAudience.Private
+@InterfaceStability.Unstable
 public class PmemVolumeManager {
+
+  /**
+   * Counts used bytes for persistent memory.
+   */
+  private class PmemUsedBytesCount {
+    private final AtomicLong usedBytes = new AtomicLong(0);
+
+    /**
+     * Try to reserve more bytes.
+     *
+     * @param bytesCount    The number of bytes to add.
+     *
+     * @return         The new number of usedBytes if we succeeded;
+     *                 -1 if we failed.
+     */
+    long reserve(long bytesCount) {
+      while (true) {
+        long cur = usedBytes.get();
+        long next = cur + bytesCount;
+        if (next > maxBytesPmem) {
+          return -1;
+        }
+        if (usedBytes.compareAndSet(cur, next)) {
+          return next;
+        }
+      }
+    }
+
+    /**
+     * Release some bytes that we're using.
+     *
+     * @param bytesCount    The number of bytes to release.
+     *
+     * @return         The new number of usedBytes.
+     */
+    long release(long bytesCount) {
+      return usedBytes.addAndGet(-bytesCount);
+    }
+
+    long get() {
+      return usedBytes.get();
+    }
+  }
+
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemVolumeManager.class);
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
   // Maintain which pmem volume a block is cached to.
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap();
+
+  private final PmemUsedBytesCount pmemUsedBytesCount;
+
+  /**
+   * The total cache capacity in bytes of persistent memory.
+   * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
+   */
+  private final long maxBytesPmem;
   private int count = 0;
   // Strict atomic operation is not guaranteed for the performance sake.
   private int i = 0;
@@ -61,6 +118,39 @@ public class PmemVolumeManager {
           " is not configured!");
     }
     this.loadVolumes(pmemVolumesConfigured);
+    this.pmemUsedBytesCount = new PmemUsedBytesCount();
+    this.maxBytesPmem = dnConf.getMaxLockedPmem();
+  }
+
+  public long getPmemCacheUsed() {
+    return pmemUsedBytesCount.get();
+  }
+
+  public long getPmemCacheCapacity() {
+    return maxBytesPmem;
+  }
+
+  /**
+   * Try to reserve more bytes on persistent memory.
+   *
+   * @param bytesCount    The number of bytes to add.
+   *
+   * @return         The new number of usedBytes if we succeeded;
+   *                 -1 if we failed.
+   */
+  long reservePmem(long bytesCount) {
+    return pmemUsedBytesCount.reserve(bytesCount);
+  }
+
+  /**
+   * Release some bytes that we're using on persistent memory.
+   *
+   * @param bytesCount    The number of bytes to release.
+   *
+   * @return         The new number of usedBytes.
+   */
+  long releasePmem(long bytesCount) {
+    return pmemUsedBytesCount.release(bytesCount);
   }
 
   /**

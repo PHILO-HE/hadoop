@@ -144,8 +144,6 @@ public class FsDatasetCache {
    */
   private final UsedBytesCount usedBytesCount;
 
-  private final PmemUsedBytesCount pmemUsedBytesCount;
-
   public static class PageRounder {
     private final long osPageSize =
         NativeIO.POSIX.getCacheManipulator().getOperatingSystemPageSize();
@@ -225,58 +223,9 @@ public class FsDatasetCache {
   }
 
   /**
-   * Counts used bytes for persistent memory.
-   */
-  private class PmemUsedBytesCount {
-    private final AtomicLong usedBytes = new AtomicLong(0);
-
-    /**
-     * Try to reserve more bytes.
-     *
-     * @param count    The number of bytes to add.
-     *
-     * @return         The new number of usedBytes if we succeeded;
-     *                 -1 if we failed.
-     */
-    long reserve(long count) {
-      while (true) {
-        long cur = usedBytes.get();
-        long next = cur + count;
-        if (next > maxBytesPmem) {
-          return -1;
-        }
-        if (usedBytes.compareAndSet(cur, next)) {
-          return next;
-        }
-      }
-    }
-
-    /**
-     * Release some bytes that we're using.
-     *
-     * @param count    The number of bytes to release.
-     *
-     * @return         The new number of usedBytes.
-     */
-    long release(long count) {
-      return usedBytes.addAndGet(-count);
-    }
-
-    long get() {
-      return usedBytes.get();
-    }
-  }
-
-  /**
    * The total cache capacity in bytes of DRAM.
    */
   private final long maxBytes;
-
-  /**
-   * The total cache capacity in bytes of persistent memory.
-   * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
-   */
-  private final long maxBytesPmem;
 
   private final MappableBlockLoader mappableBlockLoader;
 
@@ -297,7 +246,6 @@ public class FsDatasetCache {
         .setNameFormat("FsDatasetCache-%d-" + dataset.toString())
         .build();
     this.usedBytesCount = new UsedBytesCount();
-    this.pmemUsedBytesCount = new PmemUsedBytesCount();
     this.uncachingExecutor = new ThreadPoolExecutor(
             0, 1,
             60, TimeUnit.SECONDS,
@@ -332,13 +280,6 @@ public class FsDatasetCache {
     } catch (ReflectiveOperationException e) {
       throw new RuntimeException(
           "Failed to instantiate MappableBlockLoader!", e);
-    }
-
-    if (!isPmemCacheEnabled()) {
-      // Thus pmem will not be considered in calculating cache capacity
-      this.maxBytesPmem = 0L;
-    } else {
-      this.maxBytesPmem = dataset.datanode.getDnConf().getMaxLockedPmem();
     }
   }
 
@@ -509,29 +450,6 @@ public class FsDatasetCache {
    */
   long roundUpPageSize(long count) {
     return usedBytesCount.rounder.roundUp(count);
-  }
-
-  /**
-   * Try to reserve more bytes on persistent memory.
-   *
-   * @param count    The number of bytes to add.
-   *
-   * @return         The new number of usedBytes if we succeeded;
-   *                 -1 if we failed.
-   */
-  long reservePmem(long count) {
-    return pmemUsedBytesCount.reserve(count);
-  }
-
-  /**
-   * Release some bytes that we're using on persistent memory.
-   *
-   * @param count    The number of bytes to release.
-   *
-   * @return         The new number of usedBytes.
-   */
-  long releasePmem(long count) {
-    return pmemUsedBytesCount.release(count);
   }
 
   /**
@@ -730,7 +648,11 @@ public class FsDatasetCache {
    * TODO: advertise this metric to NameNode by FSDatasetMBean
    */
   public long getPmemCacheUsed() {
-    return pmemUsedBytesCount.get();
+    if (isPmemCacheEnabled()) {
+      return ((PmemMappableBlockLoader)mappableBlockLoader)
+          .getPmemVolumeManager().getPmemCacheUsed();
+    }
+    return 0;
   }
 
   /**
@@ -745,15 +667,11 @@ public class FsDatasetCache {
    * TODO: advertise this metric to NameNode by FSDatasetMBean
    */
   public long getPmemCacheCapacity() {
-    return maxBytesPmem;
-  }
-
-  public long getMaxBytes() {
-    return maxBytes;
-  }
-
-  public long getPmemMaxBytes() {
-    return maxBytesPmem;
+    if (isPmemCacheEnabled()) {
+      return ((PmemMappableBlockLoader)mappableBlockLoader)
+          .getPmemVolumeManager().getPmemCacheCapacity();
+    }
+    return 0;
   }
 
   public long getNumBlocksFailedToCache() {
