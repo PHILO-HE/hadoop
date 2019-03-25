@@ -107,8 +107,10 @@ public class TestCacheWithPmemMappableBlockLoader extends TestFsDatasetCache {
   public void testPmemConfiguration() throws Exception {
     shutdownCluster();
 
-    String pmem0 = "/mnt/pmem0";
-    String pmem1 = "/mnt/pmem1";
+    String pmem0 = MiniDFSCluster.getBaseDirectory() + "/mnt/pmem0";
+    String pmem1 = MiniDFSCluster.getBaseDirectory() + "/mnt/pmem1";
+    new File(pmem0).getAbsoluteFile().mkdirs();
+    new File(pmem1).getAbsoluteFile().mkdirs();
     try {
       PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem0));
       PmemVolumeManager.verifyIfValidPmemVolume(new File(pmem1));
