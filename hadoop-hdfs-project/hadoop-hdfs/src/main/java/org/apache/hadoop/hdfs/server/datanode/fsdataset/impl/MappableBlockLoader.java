@@ -84,7 +84,7 @@ public abstract class MappableBlockLoader {
   public abstract String getCacheCapacityConfigKey();
 
   /**
-   * Get the maximum amount of bytes a specific MappableBlock can cache.
+   * Get the maximum amount of bytes a specific MappableBlockLoader can cache.
    */
   public abstract long getMaxBytes();
 

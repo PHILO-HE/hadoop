@@ -159,7 +159,7 @@ public class PmemVolumeManager {
    * @throws IOException   If there is no available pmem volume.
    */
   private void loadVolumes(String[] volumes) throws IOException {
-    // Check whether the directory exists
+    // Check whether the volume exists
     for (String volume: volumes) {
       try {
         File pmemDir = new File(volume);
@@ -282,8 +282,13 @@ public class PmemVolumeManager {
     return inferCacheFilePath(key, volumeIndex);
   }
 
+  @VisibleForTesting
+  Map getBlockKeyToVolume() {
+    return blockKeyToVolume;
+  }
+
   /**
-   * Add the cached block's ExtendedBlockId and the cached volume index
+   * Add the cached block's ExtendedBlockId and its cache volume index
    * after cache.
    */
   public void afterCache(ExtendedBlockId key, Byte volumeIndex) {

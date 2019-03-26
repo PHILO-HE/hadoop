@@ -41,7 +41,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
- * Map block to persistent memory by using mapped byte buffer.
+ * Maps block to persistent memory by using mapped byte buffer.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -111,8 +111,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
           blockFileName);
       mappableBlock = new PmemMappedBlock(
           out, length, volumeIndex, key, pmemVolumeManager);
-      LOG.info("MappableBlock [length = " + length +
-          ", path = " + filePath + "] is loaded into persistent memory");
+      LOG.info("Successfully cache one replica into persistent memory: " +
+          "[path=" + filePath + ", length=" + length + "]");
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
@@ -130,7 +130,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   /**
-   * Verifies the block's checksum meanwhile map block to persistent memory.
+   * Verifies the block's checksum meanwhile maps block to persistent memory.
    * This is an I/O intensive operation.
    */
   private void verifyChecksumAndMapBlock(

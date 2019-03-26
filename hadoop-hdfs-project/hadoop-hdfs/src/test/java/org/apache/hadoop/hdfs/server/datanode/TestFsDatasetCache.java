@@ -18,12 +18,6 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import net.jcip.annotations.NotThreadSafe;
-import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
-import org.apache.hadoop.hdfs.server.namenode.CachedBlock;
-import org.apache.hadoop.hdfs.server.namenode.CacheManager;
-import org.apache.hadoop.hdfs.server.namenode.FSImage;
-import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
-import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.SlowDiskReports;
 import static org.apache.hadoop.test.MetricsAsserts.getMetrics;
 import static org.junit.Assert.assertEquals;
@@ -39,13 +33,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.hadoop.util.GSet;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -70,6 +62,8 @@ import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PageRounder;
+import org.apache.hadoop.hdfs.server.namenode.FSImage;
+import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.BlockIdCommand;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeProtocol;
@@ -102,16 +96,16 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_FSDATASETCACHE_M
 
 @NotThreadSafe
 public class TestFsDatasetCache {
-  protected static final org.slf4j.Logger LOG =
+  private static final org.slf4j.Logger LOG =
       LoggerFactory.getLogger(TestFsDatasetCache.class);
 
   // Most Linux installs allow a default of 64KB locked memory
-  protected static final long CACHE_CAPACITY = 64 * 1024;
+  static final long CACHE_CAPACITY = 64 * 1024;
   // mlock always locks the entire page. So we don't need to deal with this
   // rounding, use the OS page size for the block size.
   private static final long PAGE_SIZE =
       NativeIO.POSIX.getCacheManipulator().getOperatingSystemPageSize();
-  protected static final long BLOCK_SIZE = PAGE_SIZE;
+  private static final long BLOCK_SIZE = PAGE_SIZE;
 
   private static Configuration conf;
   private static MiniDFSCluster cluster = null;
@@ -150,9 +144,6 @@ public class TestFsDatasetCache {
     });
   }
 
-  protected void postSetupConf(Configuration config) {
-  }
-
   @AfterClass
   public static void tearDownClass() throws Exception {
     DataNodeFaultInjector.set(oldInjector);
@@ -169,7 +160,6 @@ public class TestFsDatasetCache {
         CACHE_CAPACITY);
     conf.setLong(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY, 1);
     conf.setInt(DFS_DATANODE_FSDATASETCACHE_MAX_THREADS_PER_VOLUME_KEY, 10);
-    postSetupConf(conf);
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());
@@ -202,13 +192,6 @@ public class TestFsDatasetCache {
     }
     // Restore the original CacheManipulator
     NativeIO.POSIX.setCacheManipulator(prevCacheManipulator);
-  }
-
-  protected static void shutdownCluster() {
-    if (cluster != null) {
-      cluster.shutdown();
-      cluster = null;
-    }
   }
 
   private static void setHeartbeatResponse(DatanodeCommand[] cmds)
@@ -284,61 +267,6 @@ public class TestFsDatasetCache {
       }
     }
     return sizes;
-  }
-
-  /**
-   * Wait for the NameNode to have an expected number of cached blocks
-   * and replicas.
-   * @param nn NameNode
-   * @param expectedCachedBlocks if -1, treat as wildcard
-   * @param expectedCachedReplicas if -1, treat as wildcard
-   * @throws Exception
-   */
-  protected static void waitForCachedBlocks(
-      NameNode nameNode, final int expectedCachedBlocks,
-      final int expectedCachedReplicas, final String logString)
-      throws Exception {
-    final FSNamesystem namesystem = nameNode.getNamesystem();
-    final CacheManager cacheManager = namesystem.getCacheManager();
-    LOG.info("Waiting for " + expectedCachedBlocks + " blocks with " +
-        expectedCachedReplicas + " replicas.");
-    GenericTestUtils.waitFor(new Supplier<Boolean>() {
-      @Override
-      public Boolean get() {
-        int numCachedBlocks = 0, numCachedReplicas = 0;
-        namesystem.readLock();
-        try {
-          GSet<CachedBlock, CachedBlock> cachedBlocks =
-              cacheManager.getCachedBlocks();
-          if (cachedBlocks != null) {
-            for (Iterator<CachedBlock> iter = cachedBlocks.iterator();
-                 iter.hasNext();) {
-              CachedBlock cachedBlock = iter.next();
-              numCachedBlocks++;
-              numCachedReplicas +=
-                  cachedBlock.getDatanodes(
-                      DatanodeDescriptor.CachedBlocksList.Type.CACHED).size();
-            }
-          }
-        } finally {
-          namesystem.readUnlock();
-        }
-
-        LOG.info(logString + " cached blocks: have " + numCachedBlocks +
-            " / " + expectedCachedBlocks + ".  " +
-            "cached replicas: have " + numCachedReplicas +
-            " / " + expectedCachedReplicas);
-
-        if (expectedCachedBlocks == -1 ||
-            numCachedBlocks == expectedCachedBlocks) {
-          if (expectedCachedReplicas == -1 ||
-              numCachedReplicas == expectedCachedReplicas) {
-            return true;
-          }
-        }
-        return false;
-      }
-    }, 500, 60000);
   }
 
   private void testCacheAndUncacheBlock() throws Exception {

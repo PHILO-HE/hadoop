@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 /**
- * Represents an HDFS block that is mapped to persistent memory by the DataNode
+ * Represents an HDFS block that is mapped to persistent memory by DataNode
  * with mapped byte buffer. PMDK is NOT involved in this implementation.
  */
 @InterfaceAudience.Private
@@ -68,11 +68,11 @@ public class PmemMappedBlock implements MappableBlock {
     pmemVolumeManager.afterUncache(key);
     String cacheFilePath =
         pmemVolumeManager.inferCacheFilePath(key, volumeIndex);
-    LOG.info(
-        "Start to unmap file " + cacheFilePath + " with length " + length);
     NativeIO.POSIX.munmap(mmap);
     try {
       FsDatasetUtil.deleteMappedFile(cacheFilePath);
+      LOG.info("Successfully uncache one replica from persistent memory: " +
+          "[path=" + cacheFilePath + ", length=" + length + "]");
     } catch (IOException e) {
       LOG.warn("Failed to delete the mapped File: {}!", cacheFilePath, e);
     }

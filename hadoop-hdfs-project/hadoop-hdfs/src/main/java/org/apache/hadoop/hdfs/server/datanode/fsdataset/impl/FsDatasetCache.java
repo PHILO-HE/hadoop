@@ -227,6 +227,10 @@ public class FsDatasetCache {
    */
   private final long maxBytes;
 
+  /**
+   * A specific mappableBlockLoader could cache block either to DRAM or
+   * to persistent memory.
+   */
   private final MappableBlockLoader mappableBlockLoader;
 
   /**
@@ -300,7 +304,7 @@ public class FsDatasetCache {
   /**
    * Get the cache path if the replica is cached into persistent memory.
    */
-  public String getReplicaCachPath(String bpid, long blockId) {
+  public String getReplicaCachePath(String bpid, long blockId) {
     if (!isPmemCacheEnabled() || !isCached(bpid, blockId)) {
       return null;
     }
