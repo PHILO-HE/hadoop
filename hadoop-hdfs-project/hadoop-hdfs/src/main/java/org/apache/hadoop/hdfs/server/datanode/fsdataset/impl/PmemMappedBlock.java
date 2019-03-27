@@ -21,12 +21,10 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.MappedByteBuffer;
 
 /**
  * Represents an HDFS block that is mapped to persistent memory by DataNode
@@ -38,15 +36,13 @@ public class PmemMappedBlock implements MappableBlock {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappedBlock.class);
   private final PmemVolumeManager pmemVolumeManager;
-  private MappedByteBuffer mmap;
   private long length;
   private Byte volumeIndex = null;
   private ExtendedBlockId key;
 
-  PmemMappedBlock(MappedByteBuffer mmap, long length, Byte volumeIndex,
-                  ExtendedBlockId key, PmemVolumeManager pmemVolumeManager) {
+  PmemMappedBlock(long length, Byte volumeIndex, ExtendedBlockId key,
+                  PmemVolumeManager pmemVolumeManager) {
     assert length > 0;
-    this.mmap = mmap;
     this.length = length;
     this.volumeIndex = volumeIndex;
     this.key = key;
@@ -68,7 +64,6 @@ public class PmemMappedBlock implements MappableBlock {
     pmemVolumeManager.afterUncache(key);
     String cacheFilePath =
         pmemVolumeManager.inferCacheFilePath(volumeIndex, key);
-    NativeIO.POSIX.munmap(mmap);
     try {
       FsDatasetUtil.deleteMappedFile(cacheFilePath);
       LOG.info("Successfully uncache one replica from persistent memory: " +

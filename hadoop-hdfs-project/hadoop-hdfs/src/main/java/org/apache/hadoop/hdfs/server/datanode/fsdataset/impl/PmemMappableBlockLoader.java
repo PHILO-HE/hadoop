@@ -85,7 +85,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
                             FileInputStream metaIn, String blockFileName,
                             ExtendedBlockId key)
       throws IOException {
-
     PmemMappedBlock mappableBlock = null;
     String filePath = null;
 
@@ -110,20 +109,17 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
           blockFileName);
       mappableBlock = new PmemMappedBlock(
-          out, length, volumeIndex, key, pmemVolumeManager);
+          length, volumeIndex, key, pmemVolumeManager);
       LOG.info("Successfully cache one replica into persistent memory: " +
           "[path=" + filePath + ", length=" + length + "]");
     } finally {
       IOUtils.closeQuietly(blockChannel);
+      if (out != null) {
+        NativeIO.POSIX.munmap(out);
+      }
+      IOUtils.closeQuietly(file);
       if (mappableBlock == null) {
-        if (file != null) {
-          IOUtils.closeQuietly(file);
-        }
-        if (out != null) {
-          // unmap content from persistent memory
-          NativeIO.POSIX.munmap(out);
-          FsDatasetUtil.deleteMappedFile(filePath);
-        }
+        FsDatasetUtil.deleteMappedFile(filePath);
       }
     }
     return mappableBlock;
