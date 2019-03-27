@@ -59,8 +59,8 @@ public class PmemVolumeManager {
      *
      * @param bytesCount    The number of bytes to add.
      *
-     * @return         The new number of usedBytes if we succeeded;
-     *                 -1 if we failed.
+     * @return              The new number of usedBytes if we succeeded;
+     *                      -1 if we failed.
      */
     long reserve(long bytesCount) {
       while (true) {
@@ -80,7 +80,7 @@ public class PmemVolumeManager {
      *
      * @param bytesCount    The number of bytes to release.
      *
-     * @return         The new number of usedBytes.
+     * @return              The new number of usedBytes.
      */
     long release(long bytesCount) {
       return usedBytes.addAndGet(-bytesCount);
@@ -135,8 +135,8 @@ public class PmemVolumeManager {
    *
    * @param bytesCount    The number of bytes to add.
    *
-   * @return         The new number of usedBytes if we succeeded;
-   *                 -1 if we failed.
+   * @return              The new number of usedBytes if we succeeded;
+   *                      -1 if we failed.
    */
   long reservePmem(long bytesCount) {
     return pmemUsedBytesCount.reserve(bytesCount);
@@ -147,7 +147,7 @@ public class PmemVolumeManager {
    *
    * @param bytesCount    The number of bytes to release.
    *
-   * @return         The new number of usedBytes.
+   * @return              The new number of usedBytes.
    */
   long releasePmem(long bytesCount) {
     return pmemUsedBytesCount.release(bytesCount);
@@ -265,9 +265,14 @@ public class PmemVolumeManager {
    * The strategy will be optimized, especially if one pmem volume
    * has huge cache capacity.
    *
-   * @Return  a path to which the block replica will be mapped.
+   * @param volumeIndex   The index of pmem volume where a replica will be
+   *                      cached to or has been cached to.
+   *
+   * @param key           The replica's ExtendedBlockId.
+   *
+   * @return              A path to which the block replica is mapped.
    */
-  public String inferCacheFilePath(ExtendedBlockId key, Byte volumeIndex) {
+  public String inferCacheFilePath(Byte volumeIndex, ExtendedBlockId key) {
     return pmemVolumes.get(volumeIndex) + "/" + getCacheFileName(key);
   }
 
@@ -279,7 +284,7 @@ public class PmemVolumeManager {
     if (volumeIndex == null) {
       return  null;
     }
-    return inferCacheFilePath(key, volumeIndex);
+    return inferCacheFilePath(volumeIndex, key);
   }
 
   @VisibleForTesting
@@ -288,7 +293,7 @@ public class PmemVolumeManager {
   }
 
   /**
-   * Add the cached block's ExtendedBlockId and its cache volume index
+   * Add cached block's ExtendedBlockId and its cache volume index to a map
    * after cache.
    */
   public void afterCache(ExtendedBlockId key, Byte volumeIndex) {

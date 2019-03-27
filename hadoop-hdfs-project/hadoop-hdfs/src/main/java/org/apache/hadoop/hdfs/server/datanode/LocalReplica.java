@@ -247,9 +247,10 @@ abstract public class LocalReplica extends ReplicaInfo {
     return true;
   }
 
-  public InputStream getDataInputStreamfromPmem(String cachePath, long seekoffset)
-      throws IOException {
-    return FsDatasetUtil.getInputStreamAndSeek(new File(cachePath), seekoffset);
+  public InputStream getDataInputStreamfromPmem(
+      String cachePath, long seekoffset) throws IOException {
+    return FsDatasetUtil.getInputStreamAndSeek(
+        new File(cachePath), seekoffset);
   }
 
   @Override

@@ -67,7 +67,7 @@ public class PmemMappedBlock implements MappableBlock {
   public void close() {
     pmemVolumeManager.afterUncache(key);
     String cacheFilePath =
-        pmemVolumeManager.inferCacheFilePath(key, volumeIndex);
+        pmemVolumeManager.inferCacheFilePath(volumeIndex, key);
     NativeIO.POSIX.munmap(mmap);
     try {
       FsDatasetUtil.deleteMappedFile(cacheFilePath);

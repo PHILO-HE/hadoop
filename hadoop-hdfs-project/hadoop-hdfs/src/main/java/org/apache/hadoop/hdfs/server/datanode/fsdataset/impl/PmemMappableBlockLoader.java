@@ -99,7 +99,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
 
       Byte volumeIndex = pmemVolumeManager.getOneVolumeIndex();
-      filePath = pmemVolumeManager.inferCacheFilePath(key, volumeIndex);
+      filePath = pmemVolumeManager.inferCacheFilePath(volumeIndex, key);
       file = new RandomAccessFile(filePath, "rw");
       out = file.getChannel().
           map(FileChannel.MapMode.READ_WRITE, 0, length);
