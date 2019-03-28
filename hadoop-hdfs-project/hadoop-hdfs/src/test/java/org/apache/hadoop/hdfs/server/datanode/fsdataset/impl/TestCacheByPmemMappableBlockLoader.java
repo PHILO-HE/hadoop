@@ -69,6 +69,11 @@ import com.google.common.primitives.Ints;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_FSDATASETCACHE_MAX_THREADS_PER_VOLUME_KEY;
 
+/**
+ * Tests HDFS persistent memory cache by PmemMappableBlockLoader.
+ *
+ * Bogus persistent memory volume is used to cache blocks.
+ */
 public class TestCacheByPmemMappableBlockLoader {
   protected static final org.slf4j.Logger LOG =
       LoggerFactory.getLogger(TestCacheByPmemMappableBlockLoader.class);
