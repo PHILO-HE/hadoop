@@ -186,7 +186,7 @@ public class TestCacheByPmemMappableBlockLoader {
     PmemVolumeManager pmemVolumeManager =
         loader.getPmemVolumeManager();
     assertNotNull(pmemVolumeManager);
-    assertEquals(CACHE_CAPACITY, pmemVolumeManager.getPmemCacheCapacity());
+    assertEquals(CACHE_CAPACITY, pmemVolumeManager.getCacheCapacity());
     // Test round-robin selection policy
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {

@@ -204,14 +204,10 @@ public class FsDatasetUtil {
     if (filePath == null) {
       throw new IOException("The filePath should not be null!");
     }
-    try {
-      boolean result = Files.deleteIfExists(Paths.get(filePath));
-      if (!result) {
-        throw new IOException();
-      }
-    } catch (IOException e) {
+    boolean result = Files.deleteIfExists(Paths.get(filePath));
+    if (!result) {
       throw new IOException(
-          "Failed to delete the mapped file: " + filePath, e);
+          "Failed to delete the mapped file: " + filePath);
     }
   }
 }

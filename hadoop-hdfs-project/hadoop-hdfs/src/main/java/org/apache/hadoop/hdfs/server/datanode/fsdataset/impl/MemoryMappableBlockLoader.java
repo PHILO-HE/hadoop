@@ -165,4 +165,14 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   long release(long bytesCount) {
     return cacheManager.release(bytesCount);
   }
+
+  @Override
+  public boolean isNonVolatileCache() {
+    return false;
+  }
+
+  @Override
+  public String getCacheFilePath(ExtendedBlockId key) {
+    return null;
+  }
 }

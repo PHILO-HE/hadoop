@@ -55,7 +55,7 @@ public class PmemMappedBlock implements MappableBlock {
   }
 
   @Override
-  public void afterCache() throws IOException {
+  public void afterCache() {
     pmemVolumeManager.afterCache(key, volumeIndex);
   }
 
@@ -66,8 +66,8 @@ public class PmemMappedBlock implements MappableBlock {
         pmemVolumeManager.inferCacheFilePath(volumeIndex, key);
     try {
       FsDatasetUtil.deleteMappedFile(cacheFilePath);
-      LOG.info("Successfully uncache one replica from persistent memory: " +
-          "[path=" + cacheFilePath + ", length=" + length + "]");
+      LOG.info("Successfully uncached one replica:{} from persistent memory"
+          + ", [cached path={}, length={}]", key, cacheFilePath, length);
     } catch (IOException e) {
       LOG.warn("Failed to delete the mapped File: {}!", cacheFilePath, e);
     }

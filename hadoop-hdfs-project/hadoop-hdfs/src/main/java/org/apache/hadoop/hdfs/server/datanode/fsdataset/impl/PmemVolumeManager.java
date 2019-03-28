@@ -51,7 +51,7 @@ public class PmemVolumeManager {
   /**
    * Counts used bytes for persistent memory.
    */
-  private class PmemUsedBytesCount {
+  private class UsedBytesCount {
     private final AtomicLong usedBytes = new AtomicLong(0);
 
     /**
@@ -66,7 +66,7 @@ public class PmemVolumeManager {
       while (true) {
         long cur = usedBytes.get();
         long next = cur + bytesCount;
-        if (next > maxBytesPmem) {
+        if (next > maxBytes) {
           return -1;
         }
         if (usedBytes.compareAndSet(cur, next)) {
@@ -98,13 +98,13 @@ public class PmemVolumeManager {
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap();
 
-  private final PmemUsedBytesCount pmemUsedBytesCount;
+  private final UsedBytesCount usedBytesCount;
 
   /**
    * The total cache capacity in bytes of persistent memory.
    * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
    */
-  private final long maxBytesPmem;
+  private final long maxBytes;
   private int count = 0;
   // Strict atomic operation is not guaranteed for the performance sake.
   private int i = 0;
@@ -118,16 +118,16 @@ public class PmemVolumeManager {
           " is not configured!");
     }
     this.loadVolumes(pmemVolumesConfigured);
-    this.pmemUsedBytesCount = new PmemUsedBytesCount();
-    this.maxBytesPmem = dnConf.getMaxLockedPmem();
+    this.usedBytesCount = new UsedBytesCount();
+    this.maxBytes = dnConf.getMaxLockedPmem();
   }
 
-  public long getPmemCacheUsed() {
-    return pmemUsedBytesCount.get();
+  public long getCacheUsed() {
+    return usedBytesCount.get();
   }
 
-  public long getPmemCacheCapacity() {
-    return maxBytesPmem;
+  public long getCacheCapacity() {
+    return maxBytes;
   }
 
   /**
@@ -138,8 +138,8 @@ public class PmemVolumeManager {
    * @return              The new number of usedBytes if we succeeded;
    *                      -1 if we failed.
    */
-  long reservePmem(long bytesCount) {
-    return pmemUsedBytesCount.reserve(bytesCount);
+  long reserve(long bytesCount) {
+    return usedBytesCount.reserve(bytesCount);
   }
 
   /**
@@ -149,8 +149,8 @@ public class PmemVolumeManager {
    *
    * @return              The new number of usedBytes.
    */
-  long releasePmem(long bytesCount) {
-    return pmemUsedBytesCount.release(bytesCount);
+  long release(long bytesCount) {
+    return usedBytesCount.release(bytesCount);
   }
 
   /**
@@ -199,28 +199,28 @@ public class PmemVolumeManager {
     String uuidStr = UUID.randomUUID().toString();
     String testFilePath = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
     byte[] contents = uuidStr.getBytes("UTF-8");
-    RandomAccessFile file = null;
+    RandomAccessFile testFile = null;
     MappedByteBuffer out = null;
     try {
-      file = new RandomAccessFile(testFilePath, "rw");
-      out = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0,
+      testFile = new RandomAccessFile(testFilePath, "rw");
+      out = testFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0,
           contents.length);
       if (out == null) {
-        throw new IOException();
+        throw new IOException("Failed to map the test file under " + pmemDir);
       }
       out.put(contents);
       // Forces to write data to storage device containing the mapped file
       out.force();
-    } catch (Throwable t) {
+    } catch (IOException e) {
       throw new IOException(
           "Exception while writing data to persistent storage dir: " +
-              pmemDir, t);
+              pmemDir, e);
     } finally {
       if (out != null) {
         out.clear();
       }
-      if (file != null) {
-        IOUtils.closeQuietly(file);
+      if (testFile != null) {
+        IOUtils.closeQuietly(testFile);
         NativeIO.POSIX.munmap(out);
         try {
           FsDatasetUtil.deleteMappedFile(testFilePath);
@@ -277,9 +277,9 @@ public class PmemVolumeManager {
   }
 
   /**
-   * The cached file path is pmemVolume/BlockPoolId-BlockId.
+   * The cache file path is pmemVolume/BlockPoolId-BlockId.
    */
-  public String getCachedFilePath(ExtendedBlockId key) {
+  public String getCacheFilePath(ExtendedBlockId key) {
     Byte volumeIndex = blockKeyToVolume.get(key);
     if (volumeIndex == null) {
       return  null;
@@ -288,7 +288,7 @@ public class PmemVolumeManager {
   }
 
   @VisibleForTesting
-  Map getBlockKeyToVolume() {
+  Map<ExtendedBlockId, Byte> getBlockKeyToVolume() {
     return blockKeyToVolume;
   }
 

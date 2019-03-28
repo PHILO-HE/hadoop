@@ -289,12 +289,9 @@ public class FsDatasetCache {
 
   /**
    * Check if pmem cache is enabled.
-   *
-   * If new cache loader is implemented for pmem
-   * cache, this method should also consider it.
    */
   public boolean isPmemCacheEnabled() {
-    return mappableBlockLoader instanceof PmemMappableBlockLoader;
+    return mappableBlockLoader.isNonVolatileCache();
   }
 
   public FsDatasetImpl getDataset() {
@@ -305,14 +302,12 @@ public class FsDatasetCache {
    * Get the cache path if the replica is cached into persistent memory.
    */
   public String getReplicaCachePath(String bpid, long blockId) {
-    if (!isPmemCacheEnabled() || !isCached(bpid, blockId)) {
+    if (!mappableBlockLoader.isNonVolatileCache() ||
+        !isCached(bpid, blockId)) {
       return null;
     }
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
-    String cachePath = ((PmemMappableBlockLoader)mappableBlockLoader)
-        .getPmemVolumeManager()
-        .getCachedFilePath(key);
-    return cachePath;
+    return mappableBlockLoader.getCacheFilePath(key);
   }
 
   /**
@@ -517,12 +512,7 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache the block [key=" + key + "]!", e);
           return;
         }
-        try {
-          mappableBlock.afterCache();
-        } catch (IOException e) {
-          LOG.warn(e.getMessage());
-          return;
-        }
+        mappableBlock.afterCache();
 
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
@@ -654,7 +644,7 @@ public class FsDatasetCache {
   public long getPmemCacheUsed() {
     if (isPmemCacheEnabled()) {
       return ((PmemMappableBlockLoader)mappableBlockLoader)
-          .getPmemVolumeManager().getPmemCacheUsed();
+          .getPmemVolumeManager().getCacheUsed();
     }
     return 0;
   }
@@ -673,7 +663,7 @@ public class FsDatasetCache {
   public long getPmemCacheCapacity() {
     if (isPmemCacheEnabled()) {
       return ((PmemMappableBlockLoader)mappableBlockLoader)
-          .getPmemVolumeManager().getPmemCacheCapacity();
+          .getPmemVolumeManager().getCacheCapacity();
     }
     return 0;
   }

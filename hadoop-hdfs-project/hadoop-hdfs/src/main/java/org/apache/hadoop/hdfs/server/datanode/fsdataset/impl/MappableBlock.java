@@ -40,5 +40,5 @@ public interface MappableBlock extends Closeable {
   /**
    * Do something after a block is cached.
    */
-  void afterCache() throws IOException;
+  void afterCache();
 }

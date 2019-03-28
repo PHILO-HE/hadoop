@@ -110,8 +110,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
           blockFileName);
       mappableBlock = new PmemMappedBlock(
           length, volumeIndex, key, pmemVolumeManager);
-      LOG.info("Successfully cache one replica into persistent memory: " +
-          "[path=" + filePath + ", length=" + length + "]");
+      LOG.info("Successfully cached one replica:{} into persistent memory"
+          + ", [cached path={}, length={}]", key, filePath, length);
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (out != null) {
@@ -196,16 +196,26 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getMaxBytes() {
-    return pmemVolumeManager.getPmemCacheCapacity();
+    return pmemVolumeManager.getCacheCapacity();
   }
 
   @Override
   long reserve(long bytesCount) {
-    return pmemVolumeManager.reservePmem(bytesCount);
+    return pmemVolumeManager.reserve(bytesCount);
   }
 
   @Override
   long release(long bytesCount) {
-    return pmemVolumeManager.releasePmem(bytesCount);
+    return pmemVolumeManager.release(bytesCount);
+  }
+
+  @Override
+  public boolean isNonVolatileCache() {
+    return true;
+  }
+
+  @Override
+  public String getCacheFilePath(ExtendedBlockId key) {
+    return pmemVolumeManager.getCacheFilePath(key);
   }
 }

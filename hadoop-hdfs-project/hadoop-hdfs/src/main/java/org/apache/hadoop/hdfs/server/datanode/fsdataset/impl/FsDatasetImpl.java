@@ -801,9 +801,9 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       ReplicaInfo info, ExtendedBlock b, long seekOffset) throws IOException {
     String cachePath = cacheManager.getReplicaCachePath(
         b.getBlockPoolId(), b.getBlockId());
-    if (cachePath != null && info instanceof LocalReplica) {
-      return ((LocalReplica)info).getDataInputStreamfromPmem(
-          cachePath, seekOffset);
+    if (cachePath != null) {
+      return FsDatasetUtil.getInputStreamAndSeek(
+          new File(cachePath), seekOffset);
     }
     return info.getDataInputStream(seekOffset);
   }
