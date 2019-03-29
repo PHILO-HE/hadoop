@@ -60,22 +60,41 @@ public abstract class MappableBlockLoader {
   /**
    * Try to reserve some given bytes.
    *
-   * @param bytesCount
-   *          The number of bytes to add.
+   * @param bytesCount    The number of bytes to add.
    *
-   * @return The new number of usedBytes if we succeeded; -1 if we failed.
+   * @return              The new number of usedBytes if we succeeded;
+   *                      -1 if we failed.
    */
   abstract long reserve(long bytesCount);
 
   /**
    * Release some bytes that we're using.
    *
-   * @param bytesCount
-   *          The number of bytes to release.
+   * @param bytesCount    The number of bytes to release.
    *
-   * @return The new number of usedBytes.
+   * @return              The new number of usedBytes.
    */
   abstract long release(long bytesCount);
+
+  /**
+   * Get the config key of cache capacity.
+   */
+  abstract String getCacheCapacityConfigKey();
+
+  /**
+   * Get the maximum amount of cache bytes.
+   */
+  abstract long getMaxBytes();
+
+  /**
+   * Check whether the cache is non-volatile.
+   */
+  abstract boolean isNonVolatileCache();
+
+  /**
+   * Get a cache file path if applicable. Otherwise return null.
+   */
+  abstract String getCacheFilePath(ExtendedBlockId key);
 
   /**
    * Reads bytes into a buffer until EOF or the buffer's limit is reached.

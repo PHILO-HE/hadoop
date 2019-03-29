@@ -23,6 +23,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -48,7 +49,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
@@ -130,6 +130,10 @@ public class FsDatasetCache {
 
   private final long revocationPollingMs;
 
+  /**
+   * A specific mappableBlockLoader could cache block either to DRAM or
+   * to persistent memory.
+   */
   private final MappableBlockLoader mappableBlockLoader;
 
   private final MemoryCacheStats memCacheStats;
@@ -174,10 +178,43 @@ public class FsDatasetCache {
     }
     this.revocationPollingMs = confRevocationPollingMs;
 
-    this.mappableBlockLoader = new MemoryMappableBlockLoader(this);
+    Class<? extends MappableBlockLoader> cacheLoaderClass =
+        dataset.datanode.getDnConf().getCacheLoaderClass();
+    try {
+      this.mappableBlockLoader = cacheLoaderClass
+          .getConstructor(FsDatasetCache.class)
+          .newInstance(this);
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(
+          "Failed to instantiate MappableBlockLoader!", e);
+    }
     // Both lazy writer and read cache are sharing this statistics.
     this.memCacheStats = new MemoryCacheStats(
         dataset.datanode.getDnConf().getMaxLockedMemory());
+  }
+
+
+  /**
+   * Check if pmem cache is enabled.
+   */
+  public boolean isPmemCacheEnabled() {
+    return mappableBlockLoader.isNonVolatileCache();
+  }
+
+  public FsDatasetImpl getDataset() {
+    return this.dataset;
+  }
+
+  /**
+   * Get the cache path if the replica is cached into persistent memory.
+   */
+  public String getReplicaCachePath(String bpid, long blockId) {
+    if (!mappableBlockLoader.isNonVolatileCache() ||
+        !isCached(bpid, blockId)) {
+      return null;
+    }
+    ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
+    return mappableBlockLoader.getCacheFilePath(key);
   }
 
   /**
@@ -350,8 +387,8 @@ public class FsDatasetCache {
         if (newUsedBytes < 0) {
           LOG.warn("Failed to cache " + key + ": could not reserve " + length +
               " more bytes in the cache: " +
-              DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY +
-              " of " + memCacheStats.getCacheCapacity() + " exceeded.");
+              mappableBlockLoader.getCacheCapacityConfigKey() +
+              " of " + mappableBlockLoader.getMaxBytes() + " exceeded.");
           return;
         }
         reservedBytes = true;
@@ -370,6 +407,7 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache " + key + ": failed to open file", e);
           return;
         }
+
         try {
           mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
               blockFileName, key);
@@ -381,6 +419,8 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache the block [key=" + key + "]!", e);
           return;
         }
+        mappableBlock.afterCache();
+
         synchronized (FsDatasetCache.this) {
           Value value = mappableBlockMap.get(key);
           Preconditions.checkNotNull(value);
@@ -498,17 +538,41 @@ public class FsDatasetCache {
   // Stats related methods for FSDatasetMBean
 
   /**
-   * Get the approximate amount of cache space used.
+   * Get the approximate amount of DRAM cache space used.
    */
   public long getCacheUsed() {
     return memCacheStats.getCacheUsed();
   }
 
   /**
-   * Get the maximum amount of bytes we can cache.  This is a constant.
+   * Get the approximate amount of persistent memory cache space used.
+   * TODO: advertise this metric to NameNode by FSDatasetMBean
+   */
+  public long getPmemCacheUsed() {
+    if (isPmemCacheEnabled()) {
+      return ((PmemMappableBlockLoader)mappableBlockLoader)
+          .getPmemVolumeManager().getCacheUsed();
+    }
+    return 0;
+  }
+
+  /**
+   * Get the maximum amount of bytes we can cache on DRAM.  This is a constant.
    */
   public long getCacheCapacity() {
     return memCacheStats.getCacheCapacity();
+  }
+
+  /**
+   * Get cache capacity of persistent memory.
+   * TODO: advertise this metric to NameNode by FSDatasetMBean
+   */
+  public long getPmemCacheCapacity() {
+    if (isPmemCacheEnabled()) {
+      return ((PmemMappableBlockLoader)mappableBlockLoader)
+          .getPmemVolumeManager().getCacheCapacity();
+    }
+    return 0;
   }
 
   public long getNumBlocksFailedToCache() {
@@ -527,5 +591,10 @@ public class FsDatasetCache {
     ExtendedBlockId block = new ExtendedBlockId(blockId, bpid);
     Value val = mappableBlockMap.get(block);
     return (val != null) && val.state.shouldAdvertise();
+  }
+
+  @VisibleForTesting
+  public MappableBlockLoader getMappableBlockLoader() {
+    return mappableBlockLoader;
   }
 }

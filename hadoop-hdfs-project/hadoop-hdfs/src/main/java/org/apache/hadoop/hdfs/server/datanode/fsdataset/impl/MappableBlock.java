@@ -35,4 +35,9 @@ public interface MappableBlock extends Closeable {
    * @return the number of bytes that have been cached.
    */
   long getLength();
+
+  /**
+   * Do something after a block is cached.
+   */
+  void afterCache();
 }
