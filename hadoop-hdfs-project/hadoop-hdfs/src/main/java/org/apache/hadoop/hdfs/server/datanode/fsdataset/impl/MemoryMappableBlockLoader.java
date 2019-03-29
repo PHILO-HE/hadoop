@@ -43,16 +43,11 @@ import java.nio.channels.FileChannel;
 @InterfaceStability.Unstable
 public class MemoryMappableBlockLoader extends MappableBlockLoader {
 
-  private final FsDatasetCache cacheManager;
+  private MemoryCacheStats memCacheStats;
 
-  /**
-   * Constructs memory mappable loader.
-   *
-   * @param cacheManager
-   *          FsDatasetCache reference.
-   */
-  public MemoryMappableBlockLoader(FsDatasetCache cacheManager) {
-    this.cacheManager = cacheManager;
+  @Override
+  void initialize(FsDatasetCache cacheManager) throws IOException {
+    this.memCacheStats = cacheManager.getMemCacheStats();
   }
 
   /**
@@ -160,22 +155,22 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   public long getCacheUsed() {
-    return cacheManager.getCacheUsed();
+    return memCacheStats.getCacheUsed();
   }
 
   @Override
   public long getCacheCapacity() {
-    return cacheManager.getCacheCapacity();
+    return memCacheStats.getCacheCapacity();
   }
 
   @Override
   long reserve(long bytesCount) {
-    return cacheManager.reserve(bytesCount);
+    return memCacheStats.reserve(bytesCount);
   }
 
   @Override
   long release(long bytesCount) {
-    return cacheManager.release(bytesCount);
+    return memCacheStats.release(bytesCount);
   }
 
   @Override

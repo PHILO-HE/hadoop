@@ -86,7 +86,7 @@ public class TestCacheByPmemMappableBlockLoader {
   private static DistributedFileSystem fs;
   private static DataNode dn;
   private static FsDatasetCache cacheManager;
-  private static PmemMappableBlockLoader loader;
+  private static PmemMappableBlockLoader cacheLoader;
   /**
    * Used to pause DN BPServiceActor threads. BPSA threads acquire the
    * shared read lock. The test acquires the write lock for exclusive access.
@@ -158,7 +158,7 @@ public class TestCacheByPmemMappableBlockLoader {
     fs = cluster.getFileSystem();
     dn = cluster.getDataNodes().get(0);
     cacheManager = ((FsDatasetImpl) dn.getFSDataset()).cacheManager;
-    loader = (PmemMappableBlockLoader) cacheManager.getMappableBlockLoader();
+    cacheLoader = (PmemMappableBlockLoader) cacheManager.getCacheLoader();
   }
 
   @After
@@ -184,7 +184,7 @@ public class TestCacheByPmemMappableBlockLoader {
   @Test
   public void testPmemVolumeManager() throws IOException {
     PmemVolumeManager pmemVolumeManager =
-        loader.getPmemVolumeManager();
+        cacheLoader.getPmemVolumeManager();
     assertNotNull(pmemVolumeManager);
     assertEquals(CACHE_CAPACITY, pmemVolumeManager.getCacheCapacity());
     // Test round-robin selection policy
@@ -254,7 +254,7 @@ public class TestCacheByPmemMappableBlockLoader {
     // The pmem cache space is expected to have been used up.
     assertEquals(CACHE_CAPACITY, cacheManager.getPmemCacheUsed());
     Map<ExtendedBlockId, Byte> blockKeyToVolume =
-        loader.getPmemVolumeManager().getBlockKeyToVolume();
+        cacheLoader.getPmemVolumeManager().getBlockKeyToVolume();
     // All block keys should be kept in blockKeyToVolume
     assertEquals(blockKeyToVolume.size(), maxCacheBlocksNum);
     assertTrue(blockKeyToVolume.keySet().containsAll(blockKeys));
@@ -266,7 +266,7 @@ public class TestCacheByPmemMappableBlockLoader {
       // to pmem.
       assertNotNull(cachePath);
       String expectFileName =
-          loader.getPmemVolumeManager().getCacheFileName(key);
+          cacheLoader.getPmemVolumeManager().getCacheFileName(key);
       if (cachePath.startsWith(PMEM_DIR_0)) {
         assertTrue(cachePath.equals(PMEM_DIR_0 + "/" + expectFileName));
       } else if (cachePath.startsWith(PMEM_DIR_1)) {

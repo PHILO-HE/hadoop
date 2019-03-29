@@ -51,7 +51,9 @@ import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
+import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,10 +133,10 @@ public class FsDatasetCache {
   private final long revocationPollingMs;
 
   /**
-   * A specific mappableBlockLoader could cache block either to DRAM or
+   * A specific cacheLoader could cache block either to DRAM or
    * to persistent memory.
    */
-  private final MappableBlockLoader mappableBlockLoader;
+  private final MappableBlockLoader cacheLoader;
 
   private final MemoryCacheStats memCacheStats;
 
@@ -183,37 +185,35 @@ public class FsDatasetCache {
 
     Class<? extends MappableBlockLoader> cacheLoaderClass =
         dataset.datanode.getDnConf().getCacheLoaderClass();
-    try {
-      this.mappableBlockLoader = cacheLoaderClass
-          .getConstructor(FsDatasetCache.class)
-          .newInstance(this);
-    } catch (ReflectiveOperationException e) {
-      throw new RuntimeException(
-          "Failed to instantiate MappableBlockLoader!", e);
-    }
+    this.cacheLoader = ReflectionUtils.newInstance(cacheLoaderClass, null);
+    cacheLoader.initialize(this);
   }
 
   /**
    * Check if pmem cache is enabled.
    */
-  public boolean isPmemCacheEnabled() {
-    return !mappableBlockLoader.isTransientCache();
+  private boolean isPmemCacheEnabled() {
+    return !cacheLoader.isTransientCache();
   }
 
-  public FsDatasetImpl getDataset() {
-    return this.dataset;
+  DNConf getDnConf() {
+    return this.dataset.datanode.getDnConf();
+  }
+
+  MemoryCacheStats getMemCacheStats() {
+    return memCacheStats;
   }
 
   /**
    * Get the cache path if the replica is cached into persistent memory.
    */
-  public String getReplicaCachePath(String bpid, long blockId) {
-    if (mappableBlockLoader.isTransientCache() ||
+  String getReplicaCachePath(String bpid, long blockId) {
+    if (cacheLoader.isTransientCache() ||
         !isCached(bpid, blockId)) {
       return null;
     }
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
-    return mappableBlockLoader.getCacheFilePath(key);
+    return cacheLoader.getCacheFilePath(key);
   }
 
   /**
@@ -380,14 +380,14 @@ public class FsDatasetCache {
       MappableBlock mappableBlock = null;
       ExtendedBlock extBlk = new ExtendedBlock(key.getBlockPoolId(),
           key.getBlockId(), length, genstamp);
-      long newUsedBytes = mappableBlockLoader.reserve(length);
+      long newUsedBytes = cacheLoader.reserve(length);
       boolean reservedBytes = false;
       try {
         if (newUsedBytes < 0) {
           LOG.warn("Failed to cache " + key + ": could not reserve " + length +
               " more bytes in the cache: " +
-              mappableBlockLoader.getCacheCapacityConfigKey() +
-              " of " + mappableBlockLoader.getCacheCapacity() + " exceeded.");
+              cacheLoader.getCacheCapacityConfigKey() +
+              " of " + cacheLoader.getCacheCapacity() + " exceeded.");
           return;
         }
         reservedBytes = true;
@@ -408,7 +408,7 @@ public class FsDatasetCache {
         }
 
         try {
-          mappableBlock = mappableBlockLoader.load(length, blockIn, metaIn,
+          mappableBlock = cacheLoader.load(length, blockIn, metaIn,
               blockFileName, key);
         } catch (ChecksumException e) {
           // Exception message is bogus since this wasn't caused by a file read
@@ -443,7 +443,7 @@ public class FsDatasetCache {
         IOUtils.closeQuietly(metaIn);
         if (!success) {
           if (reservedBytes) {
-            mappableBlockLoader.release(length);
+            cacheLoader.release(length);
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
                   + "bytes in total.", key, memCacheStats.getCacheUsed());
@@ -520,8 +520,7 @@ public class FsDatasetCache {
       synchronized (FsDatasetCache.this) {
         mappableBlockMap.remove(key);
       }
-      long newUsedBytes = mappableBlockLoader
-          .release(value.mappableBlock.getLength());
+      long newUsedBytes = cacheLoader.release(value.mappableBlock.getLength());
       numBlocksCached.addAndGet(-1);
       dataset.datanode.getMetrics().incrBlocksUncached(1);
       if (revocationTimeMs != 0) {
@@ -549,7 +548,7 @@ public class FsDatasetCache {
    */
   public long getPmemCacheUsed() {
     if (isPmemCacheEnabled()) {
-      return mappableBlockLoader.getCacheUsed();
+      return cacheLoader.getCacheUsed();
     }
     return 0;
   }
@@ -567,7 +566,7 @@ public class FsDatasetCache {
    */
   public long getPmemCacheCapacity() {
     if (isPmemCacheEnabled()) {
-      return mappableBlockLoader.getCacheCapacity();
+      return cacheLoader.getCacheCapacity();
     }
     return 0;
   }
@@ -591,7 +590,7 @@ public class FsDatasetCache {
   }
 
   @VisibleForTesting
-  public MappableBlockLoader getMappableBlockLoader() {
-    return mappableBlockLoader;
+  MappableBlockLoader getCacheLoader() {
+    return cacheLoader;
   }
 }

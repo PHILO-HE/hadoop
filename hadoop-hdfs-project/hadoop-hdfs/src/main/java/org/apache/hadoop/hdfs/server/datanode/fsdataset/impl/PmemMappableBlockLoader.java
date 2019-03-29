@@ -48,11 +48,11 @@ import java.nio.channels.FileChannel;
 public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
-  private final PmemVolumeManager pmemVolumeManager;
+  private PmemVolumeManager pmemVolumeManager;
 
-  public PmemMappableBlockLoader(
-      FsDatasetCache cacheManager) throws IOException {
-    DNConf dnConf = cacheManager.getDataset().datanode.getDnConf();
+  @Override
+  void initialize(FsDatasetCache cacheManager) throws IOException {
+    DNConf dnConf = cacheManager.getDnConf();
     this.pmemVolumeManager = new PmemVolumeManager(dnConf);
   }
 
