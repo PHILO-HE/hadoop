@@ -96,8 +96,7 @@ public class PmemVolumeManager {
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
   // Maintain which pmem volume a block is cached to.
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
-      new ConcurrentHashMap();
-
+      new ConcurrentHashMap<>();
   private final UsedBytesCount usedBytesCount;
 
   /**

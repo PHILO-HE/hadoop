@@ -51,7 +51,7 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
    * @param cacheManager
    *          FsDatasetCache reference.
    */
-  MemoryMappableBlockLoader(FsDatasetCache cacheManager) {
+  public MemoryMappableBlockLoader(FsDatasetCache cacheManager) {
     this.cacheManager = cacheManager;
   }
 
@@ -73,7 +73,7 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
    * @return               The Mappable block.
    */
   @Override
-  public MappableBlock load(long length, FileInputStream blockIn,
+  MappableBlock load(long length, FileInputStream blockIn,
                             FileInputStream metaIn, String blockFileName,
                             ExtendedBlockId key)
       throws IOException {
@@ -159,7 +159,12 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public long getMaxBytes() {
+  public long getCacheUsed() {
+    return cacheManager.getCacheUsed();
+  }
+
+  @Override
+  public long getCacheCapacity() {
     return cacheManager.getCacheCapacity();
   }
 
@@ -174,8 +179,8 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public boolean isNonVolatileCache() {
-    return false;
+  public boolean isTransientCache() {
+    return true;
   }
 
   @Override

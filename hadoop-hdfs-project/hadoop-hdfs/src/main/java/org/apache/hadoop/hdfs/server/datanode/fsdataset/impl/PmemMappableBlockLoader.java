@@ -81,7 +81,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    * @return               The Mappable block.
    */
   @Override
-  public MappableBlock load(long length, FileInputStream blockIn,
+  MappableBlock load(long length, FileInputStream blockIn,
                             FileInputStream metaIn, String blockFileName,
                             ExtendedBlockId key)
       throws IOException {
@@ -195,7 +195,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public long getMaxBytes() {
+  public long getCacheUsed() {
+    return pmemVolumeManager.getCacheUsed();
+  }
+
+  @Override
+  public long getCacheCapacity() {
     return pmemVolumeManager.getCacheCapacity();
   }
 
@@ -210,8 +215,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public boolean isNonVolatileCache() {
-    return true;
+  public boolean isTransientCache() {
+    return false;
   }
 
   @Override

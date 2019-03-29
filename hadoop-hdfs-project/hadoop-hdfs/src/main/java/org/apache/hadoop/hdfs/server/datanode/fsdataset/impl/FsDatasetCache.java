@@ -177,6 +177,9 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
+    // Both lazy writer and read cache are sharing this statistics.
+    this.memCacheStats = new MemoryCacheStats(
+        dataset.datanode.getDnConf().getMaxLockedMemory());
 
     Class<? extends MappableBlockLoader> cacheLoaderClass =
         dataset.datanode.getDnConf().getCacheLoaderClass();
@@ -188,17 +191,13 @@ public class FsDatasetCache {
       throw new RuntimeException(
           "Failed to instantiate MappableBlockLoader!", e);
     }
-    // Both lazy writer and read cache are sharing this statistics.
-    this.memCacheStats = new MemoryCacheStats(
-        dataset.datanode.getDnConf().getMaxLockedMemory());
   }
-
 
   /**
    * Check if pmem cache is enabled.
    */
   public boolean isPmemCacheEnabled() {
-    return mappableBlockLoader.isNonVolatileCache();
+    return !mappableBlockLoader.isTransientCache();
   }
 
   public FsDatasetImpl getDataset() {
@@ -209,7 +208,7 @@ public class FsDatasetCache {
    * Get the cache path if the replica is cached into persistent memory.
    */
   public String getReplicaCachePath(String bpid, long blockId) {
-    if (!mappableBlockLoader.isNonVolatileCache() ||
+    if (mappableBlockLoader.isTransientCache() ||
         !isCached(bpid, blockId)) {
       return null;
     }
@@ -388,7 +387,7 @@ public class FsDatasetCache {
           LOG.warn("Failed to cache " + key + ": could not reserve " + length +
               " more bytes in the cache: " +
               mappableBlockLoader.getCacheCapacityConfigKey() +
-              " of " + mappableBlockLoader.getMaxBytes() + " exceeded.");
+              " of " + mappableBlockLoader.getCacheCapacity() + " exceeded.");
           return;
         }
         reservedBytes = true;
@@ -550,8 +549,7 @@ public class FsDatasetCache {
    */
   public long getPmemCacheUsed() {
     if (isPmemCacheEnabled()) {
-      return ((PmemMappableBlockLoader)mappableBlockLoader)
-          .getPmemVolumeManager().getCacheUsed();
+      return mappableBlockLoader.getCacheUsed();
     }
     return 0;
   }
@@ -569,8 +567,7 @@ public class FsDatasetCache {
    */
   public long getPmemCacheCapacity() {
     if (isPmemCacheEnabled()) {
-      return ((PmemMappableBlockLoader)mappableBlockLoader)
-          .getPmemVolumeManager().getCacheCapacity();
+      return mappableBlockLoader.getCacheCapacity();
     }
     return 0;
   }

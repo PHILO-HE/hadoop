@@ -82,14 +82,19 @@ public abstract class MappableBlockLoader {
   abstract String getCacheCapacityConfigKey();
 
   /**
+   * Get the approximate amount of cache space used.
+   */
+  abstract long getCacheUsed();
+
+  /**
    * Get the maximum amount of cache bytes.
    */
-  abstract long getMaxBytes();
+  abstract long getCacheCapacity();
 
   /**
    * Check whether the cache is non-volatile.
    */
-  abstract boolean isNonVolatileCache();
+  abstract boolean isTransientCache();
 
   /**
    * Get a cache file path if applicable. Otherwise return null.
