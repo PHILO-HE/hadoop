@@ -18,7 +18,6 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import java.io.IOException;
 import java.nio.MappedByteBuffer;
 
 import org.apache.hadoop.classification.InterfaceAudience;
