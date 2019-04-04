@@ -35,6 +35,7 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +52,12 @@ public class PmemVolumeManager {
    * Counts used bytes for persistent memory.
    */
   private class UsedBytesCount {
+    private final Long maxBytes;
     private final AtomicLong usedBytes = new AtomicLong(0);
+
+    UsedBytesCount(Long maxBytes) {
+      this.maxBytes = maxBytes;
+    }
 
     /**
      * Try to reserve more bytes.
@@ -65,7 +71,7 @@ public class PmemVolumeManager {
       while (true) {
         long cur = usedBytes.get();
         long next = cur + bytesCount;
-        if (next > cacheCapacity) {
+        if (next > maxBytes) {
           return -1;
         }
         if (usedBytes.compareAndSet(cur, next)) {
@@ -85,8 +91,16 @@ public class PmemVolumeManager {
       return usedBytes.addAndGet(-bytesCount);
     }
 
-    long get() {
+    long getUsedBytes() {
       return usedBytes.get();
+    }
+
+    long getMaxBytes() {
+      return maxBytes;
+    }
+
+    long getAvailableBytes() {
+      return maxBytes - usedBytes.get();
     }
   }
 
@@ -96,31 +110,38 @@ public class PmemVolumeManager {
   // Maintain which pmem volume a block is cached to.
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap<>();
-  private final UsedBytesCount usedBytesCount;
+//  private final UsedBytesCount usedBytesCount;
+  private final List<UsedBytesCount> usedBytesCounts = new ArrayList<>();
 
   /**
    * The total cache capacity in bytes of persistent memory.
    * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
    */
-  private final long cacheCapacity;
+  private Long cacheCapacity;
   private int count = 0;
   // Strict atomic operation is not guaranteed for the performance sake.
   private int i = 0;
 
-  PmemVolumeManager(long maxBytes, String[] pmemVolumesConfigured)
+  PmemVolumeManager(String[] maxBytesConfig, String[] pmemVolumesConfig)
       throws IOException {
-    if (pmemVolumesConfigured == null || pmemVolumesConfigured.length == 0) {
+    if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
           " is not configured!");
     }
-    this.loadVolumes(pmemVolumesConfigured);
-    this.usedBytesCount = new UsedBytesCount();
-    this.cacheCapacity = maxBytes;
+    this.loadVolumes(pmemVolumesConfig, maxBytesConfig);
+    cacheCapacity = 0L;
+    for (UsedBytesCount counter : usedBytesCounts) {
+      cacheCapacity += counter.getMaxBytes();
+    }
   }
 
   public long getCacheUsed() {
-    return usedBytesCount.get();
+    Long usedBytes = 0L;
+    for (UsedBytesCount counter : usedBytesCounts) {
+      usedBytes += counter.getUsedBytes();
+    }
+    return usedBytes;
   }
 
   public long getCacheCapacity() {
@@ -130,24 +151,35 @@ public class PmemVolumeManager {
   /**
    * Try to reserve more bytes on persistent memory.
    *
+   * @param key           The ExtendedBlockId for a block.
+   *
    * @param bytesCount    The number of bytes to add.
    *
    * @return              The new number of usedBytes if we succeeded;
    *                      -1 if we failed.
    */
-  long reserve(long bytesCount) {
-    return usedBytesCount.reserve(bytesCount);
+  synchronized long reserve(ExtendedBlockId key, long bytesCount) {
+    try {
+      Byte index = chooseVolume(bytesCount);
+      blockKeyToVolume.put(key, index);
+      return usedBytesCounts.get(index).reserve(bytesCount);
+    } catch (IOException e) {
+      return -1L;
+    }
   }
 
   /**
    * Release some bytes that we're using on persistent memory.
    *
+   * @param key           The ExtendedBlockId for a block.
+   *
    * @param bytesCount    The number of bytes to release.
    *
    * @return              The new number of usedBytes.
    */
-  long release(long bytesCount) {
-    return usedBytesCount.release(bytesCount);
+  long release(ExtendedBlockId key, long bytesCount) {
+    Byte index = blockKeyToVolume.remove(key);
+    return usedBytesCounts.get(index).release(bytesCount);
   }
 
   /**
@@ -155,23 +187,27 @@ public class PmemVolumeManager {
    *
    * @throws IOException   If there is no available pmem volume.
    */
-  private void loadVolumes(String[] volumes) throws IOException {
+  private void loadVolumes(String[] volumes, String[] maxBytes)
+      throws IOException {
     // Check whether the volume exists
-    for (String volume: volumes) {
+    for (Byte n = 0; n < volumes.length; n++) {
       try {
-        File pmemDir = new File(volume);
+        File pmemDir = new File(volumes[n]);
         verifyIfValidPmemVolume(pmemDir);
         // Remove all files under the volume.
         FileUtils.cleanDirectory(pmemDir);
       } catch (IllegalArgumentException e) {
-        LOG.error("Failed to parse persistent memory volume " + volume, e);
+        LOG.error("Failed to parse persistent memory volume " + volumes[n], e);
         continue;
       } catch (IOException e) {
-        LOG.error("Bad persistent memory volume: " + volume, e);
+        LOG.error("Bad persistent memory volume: " + volumes[n], e);
         continue;
       }
-      pmemVolumes.add(volume);
-      LOG.info("Added persistent memory - " + volume);
+      this.pmemVolumes.add(volumes[n]);
+      UsedBytesCount usedBytesCount =
+          new UsedBytesCount(Long.parseLong(maxBytes[n]));
+      this.usedBytesCounts.add(usedBytesCount);
+      LOG.info("Added persistent memory - " + volumes[n]);
     }
     count = pmemVolumes.size();
     if (count == 0) {
@@ -235,12 +271,25 @@ public class PmemVolumeManager {
    *
    * TODO: Refine volume selection policy by considering storage utilization.
    */
-  Byte getOneVolumeIndex() throws IOException {
-    if (count != 0) {
-      return (byte)(i++ % count);
-    } else {
+  synchronized Byte chooseVolume(long bytesCount) throws IOException {
+    if (count == 0) {
       throw new IOException("No usable persistent memory is found");
     }
+    int k = 0;
+    long maxAvailableSpace = 0L;
+    while (k++ != count) {
+      byte index = (byte) (i++ % count);
+      long availableBytes = usedBytesCounts.get(index).getAvailableBytes();
+      if (availableBytes >= bytesCount) {
+        return index;
+      }
+      if (availableBytes > maxAvailableSpace) {
+        maxAvailableSpace = availableBytes;
+      }
+    }
+    throw new IOException("There is no enough persistent memory space " +
+        "for caching. The current max available space is " +
+        maxAvailableSpace + ", but " + bytesCount + "is required.");
   }
 
   @VisibleForTesting
@@ -287,20 +336,5 @@ public class PmemVolumeManager {
   @VisibleForTesting
   Map<ExtendedBlockId, Byte> getBlockKeyToVolume() {
     return blockKeyToVolume;
-  }
-
-  /**
-   * Add cached block's ExtendedBlockId and its cache volume index to a map
-   * after cache.
-   */
-  public void afterCache(ExtendedBlockId key, Byte volumeIndex) {
-    blockKeyToVolume.put(key, volumeIndex);
-  }
-
-  /**
-   * Remove the record in blockKeyToVolume for uncached block after uncache.
-   */
-  public void afterUncache(ExtendedBlockId key) {
-    blockKeyToVolume.remove(key);
   }
 }

@@ -146,7 +146,8 @@ public class TestCacheByPmemMappableBlockLoader {
     new File(PMEM_DIR_1).getAbsoluteFile().mkdir();
     // Configure two bogus pmem volumes
     conf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
-    conf.setLong(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY, CACHE_CAPACITY);
+    conf.set(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY,
+        (long) (CACHE_CAPACITY * 0.25) + "," + (long) (CACHE_CAPACITY * 0.75));
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());
@@ -184,13 +185,13 @@ public class TestCacheByPmemMappableBlockLoader {
   @Test
   public void testPmemVolumeManager() throws IOException {
     PmemVolumeManager pmemVolumeManager =
-        cacheLoader.getPmemVolumeManager();
+        PmemMappableBlockLoader.getPmemVolumeManager();
     assertNotNull(pmemVolumeManager);
     assertEquals(CACHE_CAPACITY, pmemVolumeManager.getCacheCapacity());
     // Test round-robin selection policy
     long count1 = 0, count2 = 0;
     for (int i = 0; i < 10; i++) {
-      Byte index = pmemVolumeManager.getOneVolumeIndex();
+      Byte index = pmemVolumeManager.chooseVolume(BLOCK_SIZE);
       String volume = pmemVolumeManager.getVolumeByIndex(index);
       if (volume.equals(PMEM_DIR_0)) {
         count1++;
@@ -254,7 +255,7 @@ public class TestCacheByPmemMappableBlockLoader {
     // The pmem cache space is expected to have been used up.
     assertEquals(CACHE_CAPACITY, cacheManager.getPmemCacheUsed());
     Map<ExtendedBlockId, Byte> blockKeyToVolume =
-        cacheLoader.getPmemVolumeManager().getBlockKeyToVolume();
+        PmemMappableBlockLoader.getPmemVolumeManager().getBlockKeyToVolume();
     // All block keys should be kept in blockKeyToVolume
     assertEquals(blockKeyToVolume.size(), maxCacheBlocksNum);
     assertTrue(blockKeyToVolume.keySet().containsAll(blockKeys));
@@ -266,7 +267,7 @@ public class TestCacheByPmemMappableBlockLoader {
       // to pmem.
       assertNotNull(cachePath);
       String expectFileName =
-          cacheLoader.getPmemVolumeManager().getCacheFileName(key);
+          PmemMappableBlockLoader.getPmemVolumeManager().getCacheFileName(key);
       if (cachePath.startsWith(PMEM_DIR_0)) {
         assertTrue(cachePath.equals(PMEM_DIR_0 + "/" + expectFileName));
       } else if (cachePath.startsWith(PMEM_DIR_1)) {

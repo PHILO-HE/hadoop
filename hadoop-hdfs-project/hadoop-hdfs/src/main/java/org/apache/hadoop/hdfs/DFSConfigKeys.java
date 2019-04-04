@@ -404,10 +404,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_DATANODE_CACHE_PMEM_DIRS_KEY =
       "dfs.datanode.cache.pmem.dirs";
   public static final String DFS_DATANODE_CACHE_PMEM_DIRS_DEFAULT = "";
-  // The cache capacity of persistent memory
+  // The cache capacity of persistent memory. If multiple pmem dirs are
+  // configured, their capacity should be specified one by one.
   public static final String DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY =
       "dfs.datanode.cache.pmem.capacity";
-  public static final long DFS_DATANODE_CACHE_PMEM_CAPACITY_DEFAULT = 0L;
+  public static final String DFS_DATANODE_CACHE_PMEM_CAPACITY_DEFAULT = "";
 
   public static final String DFS_NAMENODE_DATANODE_REGISTRATION_IP_HOSTNAME_CHECK_KEY = "dfs.namenode.datanode.registration.ip-hostname-check";
   public static final boolean DFS_NAMENODE_DATANODE_REGISTRATION_IP_HOSTNAME_CHECK_DEFAULT = true;

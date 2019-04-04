@@ -29,7 +29,6 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_CLASS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_LOADER_CLASS_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY;
@@ -120,7 +119,7 @@ public class DNConf {
 
   private final Class<? extends MappableBlockLoader> cacheLoaderClass;
   final long maxLockedMemory;
-  private final long maxLockedPmem;
+  private final String[] maxLockedPmem;
   private final String[] pmemDirs;
 
   private final long bpReadyTimeout;
@@ -267,9 +266,8 @@ public class DNConf {
         DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
         DFS_DATANODE_MAX_LOCKED_MEMORY_DEFAULT);
 
-    this.maxLockedPmem = getConf().getLongBytes(
-        DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY,
-        DFS_DATANODE_CACHE_PMEM_CAPACITY_DEFAULT);
+    this.maxLockedPmem = getConf().getTrimmedStrings(
+        DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY);
 
     this.pmemDirs = getConf().getTrimmedStrings(
         DFS_DATANODE_CACHE_PMEM_DIRS_KEY);
@@ -336,7 +334,7 @@ public class DNConf {
     return maxLockedMemory;
   }
 
-  public long getMaxLockedPmem() {
+  public String[] getMaxLockedPmem() {
     return maxLockedPmem;
   }
 

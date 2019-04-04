@@ -380,7 +380,7 @@ public class FsDatasetCache {
       MappableBlock mappableBlock = null;
       ExtendedBlock extBlk = new ExtendedBlock(key.getBlockPoolId(),
           key.getBlockId(), length, genstamp);
-      long newUsedBytes = cacheLoader.reserve(length);
+      long newUsedBytes = cacheLoader.reserve(key, length);
       boolean reservedBytes = false;
       try {
         if (newUsedBytes < 0) {
@@ -442,7 +442,7 @@ public class FsDatasetCache {
         IOUtils.closeQuietly(metaIn);
         if (!success) {
           if (reservedBytes) {
-            cacheLoader.release(length);
+            cacheLoader.release(key, length);
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
                   + "bytes in total.", key, memCacheStats.getCacheUsed());
@@ -519,7 +519,8 @@ public class FsDatasetCache {
       synchronized (FsDatasetCache.this) {
         mappableBlockMap.remove(key);
       }
-      long newUsedBytes = cacheLoader.release(value.mappableBlock.getLength());
+      long newUsedBytes = cacheLoader.
+          release(key, value.mappableBlock.getLength());
       numBlocksCached.addAndGet(-1);
       dataset.datanode.getMetrics().incrBlocksUncached(1);
       if (revocationTimeMs != 0) {

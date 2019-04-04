@@ -49,17 +49,17 @@ import java.nio.channels.FileChannel;
 public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
-  private PmemVolumeManager pmemVolumeManager;
+  private static PmemVolumeManager pmemVolumeManager;
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
     DNConf dnConf = cacheManager.getDnConf();
-    this.pmemVolumeManager = new PmemVolumeManager(dnConf.getMaxLockedPmem(),
+    pmemVolumeManager = new PmemVolumeManager(dnConf.getMaxLockedPmem(),
         dnConf.getPmemVolumes());
   }
 
   @VisibleForTesting
-  PmemVolumeManager getPmemVolumeManager() {
+  static PmemVolumeManager getPmemVolumeManager() {
     return pmemVolumeManager;
   }
 
@@ -69,7 +69,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    * Map the block and verify its checksum.
    *
    * The block will be mapped to PmemDir/BlockPoolId-BlockId, in which PmemDir
-   * is a persistent memory volume selected by getOneLocation() method.
+   * is a persistent memory volume selected by PmemVolumeManager.
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream. Should be positioned at the
@@ -100,8 +100,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
         throw new IOException("Block InputStream has no FileChannel.");
       }
 
-      Byte volumeIndex = pmemVolumeManager.getOneVolumeIndex();
-      filePath = pmemVolumeManager.inferCacheFilePath(volumeIndex, key);
+      filePath = pmemVolumeManager.getCacheFilePath(key);
       file = new RandomAccessFile(filePath, "rw");
       out = file.getChannel().
           map(FileChannel.MapMode.READ_WRITE, 0, length);
@@ -111,9 +110,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
           blockFileName);
-      mappableBlock = new PmemMappedBlock(
-          length, volumeIndex, key, pmemVolumeManager);
-      pmemVolumeManager.afterCache(key, volumeIndex);
+      mappableBlock = new PmemMappedBlock(length, key);
       LOG.info("Successfully cached one replica:{} into persistent memory"
           + ", [cached path={}, length={}]", key, filePath, length);
     } finally {
@@ -123,6 +120,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       IOUtils.closeQuietly(file);
       if (mappableBlock == null) {
+        LOG.debug("Delete " + filePath + " due to unsuccessfully mapping.");
         FsDatasetUtil.deleteMappedFile(filePath);
       }
     }
@@ -209,13 +207,13 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  long reserve(long bytesCount) {
-    return pmemVolumeManager.reserve(bytesCount);
+  long reserve(ExtendedBlockId key, long bytesCount) {
+    return pmemVolumeManager.reserve(key, bytesCount);
   }
 
   @Override
-  long release(long bytesCount) {
-    return pmemVolumeManager.release(bytesCount);
+  long release(ExtendedBlockId key, long bytesCount) {
+    return pmemVolumeManager.release(key, bytesCount);
   }
 
   @Override

@@ -70,7 +70,7 @@ public abstract class MappableBlockLoader {
    * @return              The new number of usedBytes if we succeeded;
    *                      -1 if we failed.
    */
-  abstract long reserve(long bytesCount);
+  abstract long reserve(ExtendedBlockId key, long bytesCount);
 
   /**
    * Release some bytes that we're using.
@@ -79,7 +79,7 @@ public abstract class MappableBlockLoader {
    *
    * @return              The new number of usedBytes.
    */
-  abstract long release(long bytesCount);
+  abstract long release(ExtendedBlockId key, long bytesCount);
 
   /**
    * Get the config key of cache capacity.
