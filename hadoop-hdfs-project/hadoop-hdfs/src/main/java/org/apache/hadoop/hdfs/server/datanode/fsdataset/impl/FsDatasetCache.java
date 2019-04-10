@@ -53,7 +53,6 @@ import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
-import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -183,10 +182,22 @@ public class FsDatasetCache {
     this.memCacheStats = new MemoryCacheStats(
         dataset.datanode.getDnConf().getMaxLockedMemory());
 
-    Class<? extends MappableBlockLoader> cacheLoaderClass =
-        dataset.datanode.getDnConf().getCacheLoaderClass();
-    this.cacheLoader = ReflectionUtils.newInstance(cacheLoaderClass, null);
+    this.cacheLoader = createCacheLoader();
     cacheLoader.initialize(this);
+  }
+
+  /**
+   * Create a specific cache loader according to the configuration.
+   * If persistent memory volume is not configured, return a cache loader
+   * for DRAM cache. Otherwise, return a cache loader for pmem cache.
+   */
+  MappableBlockLoader createCacheLoader() {
+    if (this.getDnConf().getPmemVolumes() == null) {
+      LOG.info("Initializing cache loader: MemoryMappableBlockLoader");
+      return new MemoryMappableBlockLoader();
+    }
+    LOG.info("Initializing cache loader: PmemMappableBlockLoader");
+    return new PmemMappableBlockLoader();
   }
 
   /**

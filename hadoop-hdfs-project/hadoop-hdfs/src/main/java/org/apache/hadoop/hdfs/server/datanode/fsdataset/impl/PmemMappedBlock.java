@@ -51,10 +51,8 @@ public class PmemMappedBlock implements MappableBlock {
 
   @Override
   public void close() {
-    PmemVolumeManager pmemVolumeManager =
-        PmemMappableBlockLoader.getPmemVolumeManager();
     String cacheFilePath =
-        pmemVolumeManager.getCacheFilePath(key);
+        PmemMappableBlockLoader.getPmemVolumeManager().getCacheFilePath(key);
     try {
       FsDatasetUtil.deleteMappedFile(cacheFilePath);
       LOG.info("Successfully uncached one replica:{} from persistent memory"

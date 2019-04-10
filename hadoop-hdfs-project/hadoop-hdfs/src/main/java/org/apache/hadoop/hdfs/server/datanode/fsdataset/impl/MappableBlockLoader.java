@@ -65,6 +65,8 @@ public abstract class MappableBlockLoader {
   /**
    * Try to reserve some given bytes.
    *
+   * @param key           The ExtendedBlockId for a block.
+   *
    * @param bytesCount    The number of bytes to add.
    *
    * @return              The new number of usedBytes if we succeeded;
@@ -74,6 +76,8 @@ public abstract class MappableBlockLoader {
 
   /**
    * Release some bytes that we're using.
+   *
+   * @param key           The ExtendedBlockId for a block.
    *
    * @param bytesCount    The number of bytes to release.
    *

@@ -117,17 +117,25 @@ public class PmemVolumeManager {
    * The total cache capacity in bytes of persistent memory.
    * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
    */
-  private Long cacheCapacity;
+  private long cacheCapacity;
   private int count = 0;
-  // Strict atomic operation is not guaranteed for the performance sake.
   private int i = 0;
 
   PmemVolumeManager(String[] maxBytesConfig, String[] pmemVolumesConfig)
       throws IOException {
+    if (maxBytesConfig == null || maxBytesConfig.length == 0) {
+      throw new IOException("The persistent memory capacity, " +
+          DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY +
+          " is not configured!");
+    }
     if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
           " is not configured!");
+    }
+    if (maxBytesConfig.length != pmemVolumesConfig.length) {
+      throw new IOException("The cache capacity should be configured " +
+          "for every persistent memory volume!");
     }
     this.loadVolumes(pmemVolumesConfig, maxBytesConfig);
     cacheCapacity = 0L;
