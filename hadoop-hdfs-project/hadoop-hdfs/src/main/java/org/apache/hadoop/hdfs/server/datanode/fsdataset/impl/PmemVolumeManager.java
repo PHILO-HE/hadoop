@@ -116,42 +116,30 @@ public class PmemVolumeManager {
 
   /**
    * The total cache capacity in bytes of persistent memory.
-   * It is 0L if the specific mappableBlockLoader couldn't cache data to pmem.
    */
   private long cacheCapacity;
+  private static long maxBytesPerPmem = -1;
   private int count = 0;
   private int i = 0;
 
-  private PmemVolumeManager(String[] maxBytesConfig, String[] pmemVolumesConfig)
-      throws IOException {
-    if (maxBytesConfig == null || maxBytesConfig.length == 0) {
-      throw new IOException("The persistent memory capacity, " +
-          DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY +
-          " is not configured!");
-    }
+  private PmemVolumeManager(String[] pmemVolumesConfig) throws IOException {
     if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
           " is not configured!");
     }
-    if (maxBytesConfig.length != pmemVolumesConfig.length) {
-      throw new IOException("The cache capacity should be configured " +
-          "for every persistent memory volume!");
-    }
-    this.loadVolumes(pmemVolumesConfig, maxBytesConfig);
+    this.loadVolumes(pmemVolumesConfig);
     cacheCapacity = 0L;
     for (UsedBytesCount counter : usedBytesCounts) {
       cacheCapacity += counter.getMaxBytes();
     }
   }
 
-  public static void init(
-      String[] maxBytesConfig, String[] pmemVolumesConfig) throws IOException {
+  public static void init(String[] pmemVolumesConfig) throws IOException {
     if (pmemVolumeManager != null) {
       return;
     }
-    pmemVolumeManager = new PmemVolumeManager(
-        maxBytesConfig, pmemVolumesConfig);
+    pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig);
   }
 
   public static PmemVolumeManager getInstance() {
@@ -160,6 +148,11 @@ public class PmemVolumeManager {
           "The pmemVolumeManager should be instantiated!");
     }
     return pmemVolumeManager;
+  }
+
+  @VisibleForTesting
+  public static void setMaxBytes(long maxBytes) {
+    maxBytesPerPmem = maxBytes;
   }
 
   public long getCacheUsed() {
@@ -214,7 +207,7 @@ public class PmemVolumeManager {
    *
    * @throws IOException   If there is no available pmem volume.
    */
-  private void loadVolumes(String[] volumes, String[] maxBytes)
+  private void loadVolumes(String[] volumes)
       throws IOException {
     // Check whether the volume exists
     for (Byte n = 0; n < volumes.length; n++) {
@@ -223,6 +216,17 @@ public class PmemVolumeManager {
         verifyIfValidPmemVolume(pmemDir);
         // Remove all files under the volume.
         FileUtils.cleanDirectory(pmemDir);
+        this.pmemVolumes.add(volumes[n]);
+        long maxBytes;
+        if (maxBytesPerPmem == -1) {
+          maxBytes = pmemDir.getTotalSpace();
+        } else {
+          maxBytes = maxBytesPerPmem;
+        }
+        UsedBytesCount usedBytesCount = new UsedBytesCount(maxBytes);
+        this.usedBytesCounts.add(usedBytesCount);
+        LOG.info("Added persistent memory - " + volumes[n] +
+            " with size=" + maxBytes);
       } catch (IllegalArgumentException e) {
         LOG.error("Failed to parse persistent memory volume " + volumes[n], e);
         continue;
@@ -230,11 +234,6 @@ public class PmemVolumeManager {
         LOG.error("Bad persistent memory volume: " + volumes[n], e);
         continue;
       }
-      this.pmemVolumes.add(volumes[n]);
-      UsedBytesCount usedBytesCount =
-          new UsedBytesCount(Long.parseLong(maxBytes[n]));
-      this.usedBytesCounts.add(usedBytesCount);
-      LOG.info("Added persistent memory - " + volumes[n]);
     }
     count = pmemVolumes.size();
     if (count == 0) {

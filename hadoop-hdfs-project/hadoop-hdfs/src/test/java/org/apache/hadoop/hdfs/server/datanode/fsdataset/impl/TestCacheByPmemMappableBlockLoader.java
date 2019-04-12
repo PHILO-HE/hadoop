@@ -21,7 +21,6 @@ import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeFaultInjector;
 
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
 import static org.apache.hadoop.test.MetricsAsserts.getMetrics;
 import static org.junit.Assert.assertEquals;
@@ -142,8 +141,7 @@ public class TestCacheByPmemMappableBlockLoader {
     new File(PMEM_DIR_1).getAbsoluteFile().mkdir();
     // Configure two bogus pmem volumes
     conf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
-    conf.set(DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY,
-        (long) (CACHE_CAPACITY * 0.25) + "," + (long) (CACHE_CAPACITY * 0.75));
+    PmemVolumeManager.setMaxBytes((long) (CACHE_CAPACITY * 0.5));
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());

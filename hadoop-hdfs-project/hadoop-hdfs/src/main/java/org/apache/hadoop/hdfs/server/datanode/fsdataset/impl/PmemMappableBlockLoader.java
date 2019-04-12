@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
@@ -48,12 +47,12 @@ import java.nio.channels.FileChannel;
 public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
-  private static PmemVolumeManager pmemVolumeManager;
+  private PmemVolumeManager pmemVolumeManager;
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
     DNConf dnConf = cacheManager.getDnConf();
-    PmemVolumeManager.init(dnConf.getMaxLockedPmem(), dnConf.getPmemVolumes());
+    PmemVolumeManager.init(dnConf.getPmemVolumes());
     pmemVolumeManager = PmemVolumeManager.getInstance();
   }
 
@@ -183,11 +182,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
-  }
-
-  @Override
-  public String getCacheCapacityConfigKey() {
-    return DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
   }
 
   @Override

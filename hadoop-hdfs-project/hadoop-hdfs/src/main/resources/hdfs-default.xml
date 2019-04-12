@@ -2544,21 +2544,6 @@
 </property>
 
 <property>
-  <name>dfs.datanode.cache.pmem.capacity</name>
-  <value></value>
-  <description>
-    The amount of persistent memory in bytes that can be used to cache block
-    replicas to persistent memory. Currently, persistent memory is only enabled
-    in HDFS Centralized Cache Management feature.
-
-    If more than one pmem dirs is configured, their capacity should be specified
-    in order and separated by ",".
-
-    By default, this parameter is empty, which disables persistent memory caching.
-  </description>
-</property>
-
-<property>
   <name>dfs.datanode.cache.pmem.dirs</name>
   <value></value>
   <description>

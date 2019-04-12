@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.io.nativeio.NativeIO;
@@ -146,11 +145,6 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
-  }
-
-  @Override
-  public String getCacheCapacityConfigKey() {
-    return DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY;
   }
 
   @Override

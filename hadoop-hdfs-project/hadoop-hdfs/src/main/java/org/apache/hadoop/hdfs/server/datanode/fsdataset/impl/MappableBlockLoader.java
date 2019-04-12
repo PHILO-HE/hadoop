@@ -86,11 +86,6 @@ public abstract class MappableBlockLoader {
   abstract long release(ExtendedBlockId key, long bytesCount);
 
   /**
-   * Get the config key of cache capacity.
-   */
-  abstract String getCacheCapacityConfigKey();
-
-  /**
    * Get the approximate amount of cache space used.
    */
   abstract long getCacheUsed();

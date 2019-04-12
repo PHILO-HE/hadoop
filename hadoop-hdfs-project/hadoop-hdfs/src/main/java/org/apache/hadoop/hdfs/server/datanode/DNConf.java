@@ -27,7 +27,6 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHO
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHOLD_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_NON_LOCAL_LAZY_PERSIST;
@@ -115,7 +114,6 @@ public class DNConf {
   final long restartReplicaExpiry;
 
   final long maxLockedMemory;
-  private final String[] maxLockedPmem;
   private final String[] pmemDirs;
 
   private final long bpReadyTimeout;
@@ -259,9 +257,6 @@ public class DNConf {
         DFS_DATANODE_MAX_LOCKED_MEMORY_KEY,
         DFS_DATANODE_MAX_LOCKED_MEMORY_DEFAULT);
 
-    this.maxLockedPmem = getConf().getTrimmedStrings(
-        DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY);
-
     this.pmemDirs = getConf().getTrimmedStrings(
         DFS_DATANODE_CACHE_PMEM_DIRS_KEY);
 
@@ -325,10 +320,6 @@ public class DNConf {
 
   public long getMaxLockedMemory() {
     return maxLockedMemory;
-  }
-
-  public String[] getMaxLockedPmem() {
-    return maxLockedPmem;
   }
 
   /**
