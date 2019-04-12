@@ -106,11 +106,6 @@ public abstract class MappableBlockLoader {
   abstract boolean isTransientCache();
 
   /**
-   * Get a cache file path if applicable. Otherwise return null.
-   */
-  abstract String getCachedPath(ExtendedBlockId key);
-
-  /**
    * Reads bytes into a buffer until EOF or the buffer's limit is reached.
    */
   protected int fillBuffer(FileChannel channel, ByteBuffer buf)

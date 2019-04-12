@@ -18,7 +18,6 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -54,13 +53,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
     DNConf dnConf = cacheManager.getDnConf();
-    pmemVolumeManager = new PmemVolumeManager(dnConf.getMaxLockedPmem(),
-        dnConf.getPmemVolumes());
-  }
-
-  @VisibleForTesting
-  static PmemVolumeManager getPmemVolumeManager() {
-    return pmemVolumeManager;
+    PmemVolumeManager.init(dnConf.getMaxLockedPmem(), dnConf.getPmemVolumes());
+    pmemVolumeManager = PmemVolumeManager.getInstance();
   }
 
   /**
@@ -100,7 +94,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
         throw new IOException("Block InputStream has no FileChannel.");
       }
 
-      filePath = pmemVolumeManager.getCacheFilePath(key);
+      filePath = pmemVolumeManager.getCachePath(key);
       file = new RandomAccessFile(filePath, "rw");
       out = file.getChannel().
           map(FileChannel.MapMode.READ_WRITE, 0, length);
@@ -219,10 +213,5 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   @Override
   public boolean isTransientCache() {
     return false;
-  }
-
-  @Override
-  public String getCachedPath(ExtendedBlockId key) {
-    return pmemVolumeManager.getCacheFilePath(key);
   }
 }

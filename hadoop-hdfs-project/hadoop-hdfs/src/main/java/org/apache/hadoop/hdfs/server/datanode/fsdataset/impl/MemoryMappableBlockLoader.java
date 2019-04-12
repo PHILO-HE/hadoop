@@ -177,9 +177,4 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   public boolean isTransientCache() {
     return true;
   }
-
-  @Override
-  public String getCachedPath(ExtendedBlockId key) {
-    return null;
-  }
 }

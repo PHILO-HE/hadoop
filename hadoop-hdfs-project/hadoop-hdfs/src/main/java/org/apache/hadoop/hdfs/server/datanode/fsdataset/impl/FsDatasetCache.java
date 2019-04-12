@@ -224,7 +224,7 @@ public class FsDatasetCache {
       return null;
     }
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
-    return cacheLoader.getCachedPath(key);
+    return PmemVolumeManager.getInstance().getCachePath(key);
   }
 
   /**

@@ -180,8 +180,7 @@ public class TestCacheByPmemMappableBlockLoader {
 
   @Test
   public void testPmemVolumeManager() throws IOException {
-    PmemVolumeManager pmemVolumeManager =
-        PmemMappableBlockLoader.getPmemVolumeManager();
+    PmemVolumeManager pmemVolumeManager = PmemVolumeManager.getInstance();
     assertNotNull(pmemVolumeManager);
     assertEquals(CACHE_CAPACITY, pmemVolumeManager.getCacheCapacity());
     // Test round-robin selection policy
@@ -251,7 +250,7 @@ public class TestCacheByPmemMappableBlockLoader {
     // The pmem cache space is expected to have been used up.
     assertEquals(CACHE_CAPACITY, cacheManager.getPmemCacheUsed());
     Map<ExtendedBlockId, Byte> blockKeyToVolume =
-        PmemMappableBlockLoader.getPmemVolumeManager().getBlockKeyToVolume();
+        PmemVolumeManager.getInstance().getBlockKeyToVolume();
     // All block keys should be kept in blockKeyToVolume
     assertEquals(blockKeyToVolume.size(), maxCacheBlocksNum);
     assertTrue(blockKeyToVolume.keySet().containsAll(blockKeys));
@@ -263,7 +262,7 @@ public class TestCacheByPmemMappableBlockLoader {
       // to pmem.
       assertNotNull(cachePath);
       String expectFileName =
-          PmemMappableBlockLoader.getPmemVolumeManager().getCacheFileName(key);
+          PmemVolumeManager.getInstance().getCacheFileName(key);
       if (cachePath.startsWith(PMEM_DIR_0)) {
         assertTrue(cachePath.equals(PMEM_DIR_0 + "/" + expectFileName));
       } else if (cachePath.startsWith(PMEM_DIR_1)) {

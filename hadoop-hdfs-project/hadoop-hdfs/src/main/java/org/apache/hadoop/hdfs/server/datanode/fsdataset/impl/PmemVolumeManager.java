@@ -52,10 +52,10 @@ public class PmemVolumeManager {
    * Counts used bytes for persistent memory.
    */
   private class UsedBytesCount {
-    private final Long maxBytes;
+    private final long maxBytes;
     private final AtomicLong usedBytes = new AtomicLong(0);
 
-    UsedBytesCount(Long maxBytes) {
+    UsedBytesCount(long maxBytes) {
       this.maxBytes = maxBytes;
     }
 
@@ -106,6 +106,7 @@ public class PmemVolumeManager {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemVolumeManager.class);
+  private static PmemVolumeManager pmemVolumeManager = null;
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
   // Maintain which pmem volume a block is cached to.
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
@@ -121,7 +122,7 @@ public class PmemVolumeManager {
   private int count = 0;
   private int i = 0;
 
-  PmemVolumeManager(String[] maxBytesConfig, String[] pmemVolumesConfig)
+  private PmemVolumeManager(String[] maxBytesConfig, String[] pmemVolumesConfig)
       throws IOException {
     if (maxBytesConfig == null || maxBytesConfig.length == 0) {
       throw new IOException("The persistent memory capacity, " +
@@ -142,6 +143,23 @@ public class PmemVolumeManager {
     for (UsedBytesCount counter : usedBytesCounts) {
       cacheCapacity += counter.getMaxBytes();
     }
+  }
+
+  public static void init(
+      String[] maxBytesConfig, String[] pmemVolumesConfig) throws IOException {
+    if (pmemVolumeManager != null) {
+      return;
+    }
+    pmemVolumeManager = new PmemVolumeManager(
+        maxBytesConfig, pmemVolumesConfig);
+  }
+
+  public static PmemVolumeManager getInstance() {
+    if (pmemVolumeManager == null) {
+      throw new RuntimeException(
+          "The pmemVolumeManager should be instantiated!");
+    }
+    return pmemVolumeManager;
   }
 
   public long getCacheUsed() {
@@ -172,6 +190,7 @@ public class PmemVolumeManager {
       blockKeyToVolume.put(key, index);
       return usedBytesCounts.get(index).reserve(bytesCount);
     } catch (IOException e) {
+      LOG.warn(e.getMessage());
       return -1L;
     }
   }
@@ -333,7 +352,7 @@ public class PmemVolumeManager {
   /**
    * The cache file path is pmemVolume/BlockPoolId-BlockId.
    */
-  public String getCacheFilePath(ExtendedBlockId key) {
+  public String getCachePath(ExtendedBlockId key) {
     Byte volumeIndex = blockKeyToVolume.get(key);
     if (volumeIndex == null) {
       return  null;
