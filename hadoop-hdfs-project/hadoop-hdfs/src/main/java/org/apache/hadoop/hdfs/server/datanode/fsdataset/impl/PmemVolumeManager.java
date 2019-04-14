@@ -210,7 +210,7 @@ public class PmemVolumeManager {
   private void loadVolumes(String[] volumes)
       throws IOException {
     // Check whether the volume exists
-    for (Byte n = 0; n < volumes.length; n++) {
+    for (byte n = 0; n < volumes.length; n++) {
       try {
         File pmemDir = new File(volumes[n]);
         verifyIfValidPmemVolume(pmemDir);
