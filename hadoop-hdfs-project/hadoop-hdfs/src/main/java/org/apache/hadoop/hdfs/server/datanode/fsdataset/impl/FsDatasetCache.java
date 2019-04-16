@@ -396,9 +396,9 @@ public class FsDatasetCache {
       boolean reservedBytes = false;
       try {
         if (newUsedBytes < 0) {
-          LOG.warn("Failed to cache " + key + ": could not reserve " + length +
-              " more bytes in the cache: " + cacheLoader.getCacheCapacity() +
-              " exceeded.");
+          LOG.warn("Failed to cache " + key + ": could not reserve " +
+              "more bytes in the cache: " + cacheLoader.getCacheCapacity() +
+              " exceeded when try to reserve " + length + "bytes.");
           return;
         }
         reservedBytes = true;
