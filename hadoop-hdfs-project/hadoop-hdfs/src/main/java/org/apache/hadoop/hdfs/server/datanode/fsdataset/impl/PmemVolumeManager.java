@@ -51,7 +51,7 @@ public class PmemVolumeManager {
   /**
    * Counts used bytes for persistent memory.
    */
-  private class UsedBytesCount {
+  private static class UsedBytesCount {
     private final long maxBytes;
     private final AtomicLong usedBytes = new AtomicLong(0);
 
@@ -156,7 +156,7 @@ public class PmemVolumeManager {
   }
 
   public long getCacheUsed() {
-    Long usedBytes = 0L;
+    long usedBytes = 0L;
     for (UsedBytesCount counter : usedBytesCounts) {
       usedBytes += counter.getUsedBytes();
     }
