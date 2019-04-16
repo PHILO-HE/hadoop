@@ -24,7 +24,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
-import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
@@ -47,14 +46,6 @@ import java.nio.channels.FileChannel;
 public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(NativePmemMappableBlockLoader.class);
-  private PmemVolumeManager pmemVolumeManager;
-
-  @Override
-  void initialize(FsDatasetCache cacheManager) throws IOException {
-    DNConf dnConf = cacheManager.getDnConf();
-    PmemVolumeManager.init(dnConf.getPmemVolumes());
-    pmemVolumeManager = PmemVolumeManager.getInstance();
-  }
 
   /**
    * Load the block.
@@ -95,7 +86,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
       }
 
       assert NativeIO.isAvailable();
-      filePath = pmemVolumeManager.getCachePath(key);
+      filePath = PmemVolumeManager.getInstance().getCachePath(key);
       region = NativeIO.POSIX.Pmem.mapBlock(filePath, length);
       if (region == null) {
         throw new IOException("Failed to map the block " + blockFileName +
