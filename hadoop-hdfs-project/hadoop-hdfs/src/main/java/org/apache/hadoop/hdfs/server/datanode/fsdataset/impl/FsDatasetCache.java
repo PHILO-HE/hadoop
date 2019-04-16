@@ -53,6 +53,7 @@ import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
+import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -196,6 +197,10 @@ public class FsDatasetCache {
         getPmemVolumes().length == 0) {
       LOG.info("Initializing cache loader: MemoryMappableBlockLoader");
       return new MemoryMappableBlockLoader();
+    }
+    if (NativeIO.isAvailable() && NativeIO.POSIX.isPmemAvailable()) {
+      LOG.info("Initializing cache loader: NativePmemMappableBlockLoader");
+      return new NativePmemMappableBlockLoader();
     }
     LOG.info("Initializing cache loader: PmemMappableBlockLoader");
     return new PmemMappableBlockLoader();

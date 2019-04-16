@@ -18,15 +18,13 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
@@ -34,13 +32,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.UUID;
 
 /**
  * Map block to persistent memory with native PMDK libs.
@@ -49,118 +44,16 @@ import java.util.UUID;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class PmemMappableBlockLoader extends MappableBlockLoader {
+public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
   private static final Logger LOG =
-      LoggerFactory.getLogger(PmemMappableBlockLoader.class);
-  private FsDatasetCache cacheManager;
-  private final FsDatasetImpl dataset;
-  private final ArrayList<String> pmemVolumes = new ArrayList<>();
+      LoggerFactory.getLogger(NativePmemMappableBlockLoader.class);
+  private PmemVolumeManager pmemVolumeManager;
 
-  private int count = 0;
-  // Strict atomic operation is not guaranteed for the performance sake.
-  private int index = 0;
-
-  public PmemMappableBlockLoader(
-      FsDatasetCache cacheManager, FsDatasetImpl dataset) throws IOException {
-    this.cacheManager = cacheManager;
-    this.dataset = dataset;
-
-    // PMDK should be available for PmemMappableBlockLoader mapping block.
-    if (!NativeIO.isAvailable() || !NativeIO.POSIX.isPmemAvailable()) {
-      String msg = "";
-      if (NativeIO.POSIX.PMDK_SUPPORT_STATE < 0) {
-        msg = "The native code is built without PMDK support!";
-      }
-      if (NativeIO.POSIX.PMDK_SUPPORT_STATE > 0) {
-        msg = "PMDK library is NOT found!";
-      }
-      throw new IOException("Native extensions are not available! " + msg);
-    }
-
-    String[] pmemVolumes = dataset.datanode.getDnConf().getPmemVolumes();
-    if (pmemVolumes == null || pmemVolumes.length == 0) {
-      throw new IOException(
-          "The persistent memory volume, " +
-              DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
-              " is not configured!");
-    }
-    this.loadVolumes(pmemVolumes);
-  }
-
-  /**
-   * Load and verify the configured pmem volumes.
-   */
-  private void loadVolumes(String[] volumes) throws IOException {
-    // Check whether the directory exists
-    for (String location: volumes) {
-      try {
-        File locFile = new File(location);
-        verifyIfValidPmemVolume(locFile);
-        // Remove all files under the volume.
-        FileUtils.cleanDirectory(locFile);
-      } catch (IllegalArgumentException e) {
-        throw new IOException(
-            "Failed to parse persistent memory location " + location, e);
-      }
-      pmemVolumes.add(location);
-      LOG.info("Added persistent memory - " + location);
-    }
-    count = pmemVolumes.size();
-  }
-
-  @VisibleForTesting
-  public static void verifyIfValidPmemVolume(File pmemDir)
-      throws IOException {
-    if (!pmemDir.exists()) {
-      final String message = pmemDir + " does not exist.";
-      throw new IOException(message);
-    }
-
-    if (!pmemDir.isDirectory()) {
-      final String message = pmemDir + " is not a directory.";
-      throw new IllegalArgumentException(message);
-    }
-
-    String uuidStr = UUID.randomUUID().toString();
-    String testFilePath = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
-    byte[] contents = uuidStr.getBytes("UTF-8");
-    NativeIO.POSIX.PmemMappedRegion region = null;
-    try {
-      region = NativeIO.POSIX.Pmem.mapBlock(testFilePath, contents.length);
-      if (region == null) {
-        throw new IOException();
-      }
-      NativeIO.POSIX.Pmem.memCopy(contents, region.getAddress(),
-          region.isPmem(), contents.length);
-      NativeIO.POSIX.Pmem.memSync(region);
-    } catch (Throwable t) {
-      throw new IOException(
-          "Exception while writing data to persistent storage dir: " +
-              pmemDir, t);
-    } finally {
-      if (region != null) {
-        NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(),
-            region.getLength());
-        try {
-          FsDatasetUtil.deleteMappedFile(testFilePath);
-        } catch (IOException e) {
-          LOG.warn("Failed to delete test file " + testFilePath +
-              " from persistent memory", e);
-        }
-      }
-    }
-  }
-
-  /**
-   * Choose a persistent memory location based on a specific algorithm.
-   * Currently it is a round-robin policy.
-   */
-  public String getOneLocation() {
-    if (count != 0) {
-      return pmemVolumes.get(index++ % count);
-    } else {
-      throw new RuntimeException("No usable persistent memory are found");
-    }
+  @Override
+  void initialize(FsDatasetCache cacheManager) throws IOException {
+    DNConf dnConf = cacheManager.getDnConf();
+    PmemVolumeManager.init(dnConf.getPmemVolumes());
+    pmemVolumeManager = PmemVolumeManager.getInstance();
   }
 
   /**
@@ -190,7 +83,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
                             ExtendedBlockId key)
       throws IOException {
 
-    PmemMappedBlock mappableBlock = null;
+    NativePmemMappedBlock mappableBlock = null;
     NativeIO.POSIX.PmemMappedRegion region = null;
     String filePath = null;
 
@@ -202,8 +95,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
 
       assert NativeIO.isAvailable();
-      filePath = getOneLocation() + "/" + key.getBlockPoolId() +
-          "-" + key.getBlockId();
+      filePath = pmemVolumeManager.getCachePath(key);
       region = NativeIO.POSIX.Pmem.mapBlock(filePath, length);
       if (region == null) {
         throw new IOException("Failed to map the block " + blockFileName +
@@ -211,11 +103,11 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       verifyChecksumAndMapBlock(region, length, metaIn, blockChannel,
           blockFileName);
-      mappableBlock = new PmemMappedBlock(region.getAddress(),
-          region.getLength(), filePath, key, dataset);
-      LOG.info("MappableBlock [address = " + region.getAddress() +
-          ", length = " + region.getLength() + ", path = " + filePath +
-          "] is loaded into persistent memory");
+      mappableBlock = new NativePmemMappedBlock(region.getAddress(),
+          region.getLength(), key);
+      LOG.info("Successfully cached one replica:{} into persistent memory"
+          + ", [cached path={}, address={}, length={}]", key, filePath,
+          region.getAddress(), length);
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
@@ -297,25 +189,5 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
-  }
-
-  @Override
-  public String getCacheCapacityConfigKey() {
-    return DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_CAPACITY_KEY;
-  }
-
-  @Override
-  public long getMaxBytes() {
-    return cacheManager.getMaxBytesPem();
-  }
-
-  @Override
-  long reserve(long count) {
-    return cacheManager.reservePmem(count);
-  }
-
-  @Override
-  long release(long count) {
-    return cacheManager.releasePmem(count);
   }
 }
