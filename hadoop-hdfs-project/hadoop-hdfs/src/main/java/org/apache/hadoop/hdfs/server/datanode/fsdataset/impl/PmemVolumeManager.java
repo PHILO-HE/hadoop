@@ -139,7 +139,11 @@ public class PmemVolumeManager {
     if (pmemVolumeManager != null) {
       return;
     }
-    pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig);
+    synchronized (PmemVolumeManager.class) {
+      if (pmemVolumeManager == null) {
+        pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig);
+      }
+    }
   }
 
   public static PmemVolumeManager getInstance() {
