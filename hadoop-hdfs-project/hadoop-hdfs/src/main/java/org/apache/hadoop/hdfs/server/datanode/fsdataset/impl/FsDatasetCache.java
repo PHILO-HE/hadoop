@@ -192,7 +192,8 @@ public class FsDatasetCache {
    * for DRAM cache. Otherwise, return a cache loader for pmem cache.
    */
   MappableBlockLoader createCacheLoader() {
-    if (this.getDnConf().getPmemVolumes() == null) {
+    if (this.getDnConf().getPmemVolumes() == null || this.getDnConf().
+        getPmemVolumes().length == 0) {
       LOG.info("Initializing cache loader: MemoryMappableBlockLoader");
       return new MemoryMappableBlockLoader();
     }
