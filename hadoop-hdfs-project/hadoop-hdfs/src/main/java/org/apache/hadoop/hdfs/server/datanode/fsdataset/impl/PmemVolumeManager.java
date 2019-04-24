@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class PmemVolumeManager {
+public final class PmemVolumeManager {
 
   /**
    * Counts used bytes for persistent memory.
@@ -135,14 +135,10 @@ public class PmemVolumeManager {
     }
   }
 
-  public static void init(String[] pmemVolumesConfig) throws IOException {
-    if (pmemVolumeManager != null) {
-      return;
-    }
-    synchronized (PmemVolumeManager.class) {
-      if (pmemVolumeManager == null) {
-        pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig);
-      }
+  public synchronized static void init(String[] pmemVolumesConfig)
+      throws IOException {
+    if (pmemVolumeManager == null) {
+      pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig);
     }
   }
 
