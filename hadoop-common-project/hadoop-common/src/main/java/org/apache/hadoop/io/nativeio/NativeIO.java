@@ -100,14 +100,46 @@ public class NativeIO {
        write.  */
     public static int SYNC_FILE_RANGE_WAIT_AFTER = 4;
 
-    /* Denotes the state of supporting PMDK:
-           < 0, native code build without PMDK support
-           > 0, supported by native code, but PMDK dynamic library NOT found in
-                execution environment or failed to be loaded
-           ==0, ready for use, supported by native code, and PMDK library
-                loaded successfully
-       The value is set by JNI. */
-    public static int PMDK_SUPPORT_STATE = -1;
+    /**
+     * Keeps the support state of PMDK.
+     */
+    public enum SupportState {
+      UNSUPPORTED(-1),
+      PMDK_LIB_NOT_FOUND(1),
+      SUPPORTED(0);
+
+      private byte stateCode;
+      SupportState(int stateCode) {
+        this.stateCode = (byte) stateCode;
+      }
+
+      public int getStateCode() {
+        return stateCode;
+      }
+
+      public String getMessage() {
+        String msg;
+        switch (stateCode) {
+        case -1:
+          msg = "The native code is built without PMDK support.";
+          break;
+        case 1:
+          msg = "The native code is built with PMDK support, but PMDK libs " +
+              "are NOT found in execution environment or failed to be loaded.";
+          break;
+        case 0:
+          msg = "The native code is built with PMDK support, and PMDK libs " +
+              "are loaded successfully.";
+          break;
+        default:
+          msg = "The state code: " + stateCode + " is unrecognized!";
+        }
+        return msg;
+      }
+    }
+    // Denotes the state of supporting PMDK. The value is set by JNI.
+    public static SupportState PMDK_SUPPORT_STATE =
+        SupportState.PMDK_LIB_NOT_FOUND;
 
     private static final Logger LOG = LoggerFactory.getLogger(NativeIO.class);
 
@@ -133,8 +165,19 @@ public class NativeIO {
       POSIX.cacheManipulator = cacheManipulator;
     }
 
+    public static void setPmdkSupportState(int stateCode) {
+      for (SupportState state : SupportState.values()) {
+        if (state.getStateCode() == stateCode) {
+          PMDK_SUPPORT_STATE = state;
+          return;
+        }
+      }
+      LOG.error("The state code: " + stateCode + " is unrecognized!");
+    }
+
     public static boolean isPmemAvailable() {
-      return PMDK_SUPPORT_STATE == 0;
+      LOG.info(PMDK_SUPPORT_STATE.getMessage());
+      return PMDK_SUPPORT_STATE == SupportState.SUPPORTED;
     }
 
     /**
