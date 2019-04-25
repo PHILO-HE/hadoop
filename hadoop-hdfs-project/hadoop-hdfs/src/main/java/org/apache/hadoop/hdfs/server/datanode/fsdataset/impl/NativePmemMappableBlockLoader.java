@@ -38,8 +38,6 @@ import java.nio.channels.FileChannel;
 
 /**
  * Map block to persistent memory with native PMDK libs.
- *
- * TODO: Refine persistent location considering storage utilization
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -53,7 +51,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
    * Map the block and verify its checksum.
    *
    * The block will be mapped to PmemDir/BlockPoolId-BlockId, in which PmemDir
-   * is a persistent memory volume selected by getOneLocation() method.
+   * is a persistent memory volume chosen by PmemVolumeManager.
    *
    * @param length         The current length of the block.
    * @param blockIn        The block input stream. Should be positioned at the
@@ -73,7 +71,6 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
                             FileInputStream metaIn, String blockFileName,
                             ExtendedBlockId key)
       throws IOException {
-
     NativePmemMappedBlock mappableBlock = null;
     NativeIO.POSIX.PmemMappedRegion region = null;
     String filePath = null;
