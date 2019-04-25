@@ -38,6 +38,7 @@
 #include <sys/syscall.h>
 #ifdef HADOOP_PMDK_LIBRARY
 #include <libpmem.h>
+#include "pmdk_load.h"
 #endif
 #if !(defined(__FreeBSD__) || defined(__MACH__))
 #include <sys/sendfile.h>
@@ -56,7 +57,6 @@
 
 #include "file_descriptor.h"
 #include "errno_enum.h"
-#include "pmdk_load.h"
 
 #define MMAP_PROT_READ org_apache_hadoop_io_nativeio_NativeIO_POSIX_MMAP_PROT_READ
 #define MMAP_PROT_WRITE org_apache_hadoop_io_nativeio_NativeIO_POSIX_MMAP_PROT_WRITE
