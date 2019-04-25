@@ -288,11 +288,15 @@ static int loadPmdkLib(JNIEnv *env) {
     return 0; // exception has been raised
   }
   load_pmdk_lib(errMsg, sizeof(errMsg));
-  if (strlen(errMsg) > 0) {
-    setStaticInt(env, clazz, "PMDK_SUPPORT_STATE", 1);
+  jmethodID mid = (*env)->GetStaticMethodID(env, clazz, "setPmdkSupportState", "(I)V");
+  if (mid == 0) {
     return 0;
   }
-  setStaticInt(env, clazz, "PMDK_SUPPORT_STATE", 0);
+  if (strlen(errMsg) > 0) {
+    (*env)->CallStaticVoidMethod(env, clazz, mid, 1);
+    return 0;
+  }
+  (*env)->CallStaticVoidMethod(env, clazz, mid, 0);
   return 1;
 }
 
