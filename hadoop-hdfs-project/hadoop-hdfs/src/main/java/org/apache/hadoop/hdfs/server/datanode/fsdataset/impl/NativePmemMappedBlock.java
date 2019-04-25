@@ -58,17 +58,22 @@ public class NativePmemMappedBlock implements MappableBlock {
     if (pmemMappedAddres != -1L) {
       String cacheFilePath =
           PmemVolumeManager.getInstance().getCachePath(key);
-      LOG.info("Start to unmap file " + cacheFilePath + " with length " + length +
-          " from address " + pmemMappedAddres);
-      // Current libpmem will report error when pmem_unmap is called with
-      // length not aligned with page size, although the length is returned by
-      // pmem_map_file.
-      NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres, length);
-      pmemMappedAddres = -1L;
       try {
+        // Current libpmem will report error when pmem_unmap is called with
+        // length not aligned with page size, although the length is returned by
+        // pmem_map_file.
+        boolean success =
+            NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres, length);
+        if (!success) {
+          throw new IOException("Failed to unmap the mapped file from " +
+              "pmem address: " + pmemMappedAddres);
+        }
+        pmemMappedAddres = -1L;
         FsDatasetUtil.deleteMappedFile(cacheFilePath);
+        LOG.info("Successfully uncached one replica:{} from persistent memory"
+            + ", [cached path={}, length={}]", key, cacheFilePath, length);
       } catch (IOException e) {
-        LOG.warn("Failed to delete the mapped File: {}!", cacheFilePath, e);
+        LOG.warn("IOException occurred for block {}!", key, e);
       }
     }
   }
