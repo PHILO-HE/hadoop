@@ -51,6 +51,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
+    LOG.info("Initializing cache loader: PmemMappableBlockLoader.");
     DNConf dnConf = cacheManager.getDnConf();
     PmemVolumeManager.init(dnConf.getPmemVolumes());
     pmemVolumeManager = PmemVolumeManager.getInstance();
@@ -113,7 +114,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       }
       IOUtils.closeQuietly(file);
       if (mappableBlock == null) {
-        LOG.debug("Delete " + filePath + " due to unsuccessfully mapping.");
+        LOG.debug("Delete {} due to unsuccessful mapping.", filePath);
         FsDatasetUtil.deleteMappedFile(filePath);
       }
     }

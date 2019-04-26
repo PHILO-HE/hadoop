@@ -182,23 +182,9 @@ public class FsDatasetCache {
     this.memCacheStats = new MemoryCacheStats(
         dataset.datanode.getDnConf().getMaxLockedMemory());
 
-    this.cacheLoader = createCacheLoader();
+    this.cacheLoader = MappableBlockLoaderFactory.createCacheLoader(
+        this.getDnConf());
     cacheLoader.initialize(this);
-  }
-
-  /**
-   * Create a specific cache loader according to the configuration.
-   * If persistent memory volume is not configured, return a cache loader
-   * for DRAM cache. Otherwise, return a cache loader for pmem cache.
-   */
-  MappableBlockLoader createCacheLoader() {
-    if (this.getDnConf().getPmemVolumes() == null || this.getDnConf().
-        getPmemVolumes().length == 0) {
-      LOG.info("Initializing cache loader: MemoryMappableBlockLoader");
-      return new MemoryMappableBlockLoader();
-    }
-    LOG.info("Initializing cache loader: PmemMappableBlockLoader");
-    return new PmemMappableBlockLoader();
   }
 
   /**

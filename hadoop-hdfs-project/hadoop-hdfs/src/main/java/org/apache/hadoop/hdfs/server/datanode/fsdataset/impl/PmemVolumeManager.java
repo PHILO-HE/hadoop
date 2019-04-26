@@ -111,7 +111,6 @@ public final class PmemVolumeManager {
   // Maintain which pmem volume a block is cached to.
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap<>();
-//  private final UsedBytesCount usedBytesCount;
   private final List<UsedBytesCount> usedBytesCounts = new ArrayList<>();
 
   /**
@@ -219,14 +218,14 @@ public final class PmemVolumeManager {
         this.pmemVolumes.add(volumes[n]);
         long maxBytes;
         if (maxBytesPerPmem == -1) {
-          maxBytes = pmemDir.getTotalSpace();
+          maxBytes = pmemDir.getUsableSpace();
         } else {
           maxBytes = maxBytesPerPmem;
         }
         UsedBytesCount usedBytesCount = new UsedBytesCount(maxBytes);
         this.usedBytesCounts.add(usedBytesCount);
-        LOG.info("Added persistent memory - " + volumes[n] +
-            " with size=" + maxBytes);
+        LOG.info("Added persistent memory - {} with size={}",
+            volumes[n], maxBytes);
       } catch (IllegalArgumentException e) {
         LOG.error("Failed to parse persistent memory volume " + volumes[n], e);
         continue;
