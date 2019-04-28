@@ -45,6 +45,12 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(NativePmemMappableBlockLoader.class);
 
+  @Override
+  void initialize(FsDatasetCache cacheManager) throws IOException {
+    LOG.info("Initializing cache loader: NativePmemMappableBlockLoader");
+    super.initialize(cacheManager);
+  }
+
   /**
    * Load the block.
    *
