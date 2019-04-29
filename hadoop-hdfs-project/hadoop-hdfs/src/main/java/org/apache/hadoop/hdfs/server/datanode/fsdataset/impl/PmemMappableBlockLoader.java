@@ -43,7 +43,9 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
-    LOG.info("Initializing cache loader: PmemMappableBlockLoader.");
+    if (!(this instanceof NativePmemMappableBlockLoader)) {
+      LOG.info("Initializing cache loader: PmemMappableBlockLoader.");
+    }
     DNConf dnConf = cacheManager.getDnConf();
     PmemVolumeManager.init(dnConf.getPmemVolumes());
     pmemVolumeManager = PmemVolumeManager.getInstance();
