@@ -278,13 +278,14 @@ Maven build goals:
    more details please refer to the official sites:
    http://pmem.io/ and https://github.com/pmem/pmdk.
 
-  * -Drequire.pmdk is used to build the project with PMDK library forcibly. With this
+  * -Drequire.pmdk is used to build the project with PMDK libraries forcibly. With this
     option provided, the build will fail if libpmem library is not found. If this option
     is not given, the build will generate a version of Hadoop with libhadoop.so.
     And storage class memory(SCM) backed HDFS cache is still supported without PMDK involved.
-    It is better to build the project with this option if user plans to use SCM backed HDFS cache.
-  * -Dpmdk.lib is used to specify a nonstandard location for libpmem libraries if libpmem
-    libraries are not in /usr/lib or /usr/lib64.
+    It is recommended to build the project with this option if user plans to use SCM backed
+    HDFS cache.
+  * -Dpmdk.lib is used to specify a nonstandard location for PMDK libraries if they are not
+    under /usr/lib or /usr/lib64.
   * -Dbundle.pmdk is used to copy the specified libpmem libraries into the distribution tar
     package. This option requires that -Dpmdk.lib is specified. With -Dbundle.pmdk provided,
     the build will fail if -Dpmdk.lib is not specified.
