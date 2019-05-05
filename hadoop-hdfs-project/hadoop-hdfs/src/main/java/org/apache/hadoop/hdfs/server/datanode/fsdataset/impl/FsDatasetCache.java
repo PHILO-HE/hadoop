@@ -442,7 +442,7 @@ public class FsDatasetCache {
             cacheLoader.release(key, length);
           }
           LOG.debug("Caching of {} was aborted.  We are now caching only {} "
-                  + "bytes in total.", key, memCacheStats.getCacheUsed());
+                  + "bytes in total.", key, cacheLoader.getCacheUsed());
           IOUtils.closeQuietly(mappableBlock);
           numBlocksFailedToCache.incrementAndGet();
 

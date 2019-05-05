@@ -119,7 +119,7 @@ public final class PmemVolumeManager {
   private long cacheCapacity;
   private static long maxBytesPerPmem = -1;
   private int count = 0;
-  private int i = 0;
+  private byte nextIndex = 0;
 
   private PmemVolumeManager(String[] pmemVolumesConfig) throws IOException {
     if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
@@ -303,7 +303,10 @@ public final class PmemVolumeManager {
     int k = 0;
     long maxAvailableSpace = 0L;
     while (k++ != count) {
-      byte index = (byte) (i++ % count);
+      if (nextIndex == count) {
+        nextIndex = 0;
+      }
+      byte index = (byte) (nextIndex++ % count);
       long availableBytes = usedBytesCounts.get(index).getAvailableBytes();
       if (availableBytes >= bytesCount) {
         return index;
