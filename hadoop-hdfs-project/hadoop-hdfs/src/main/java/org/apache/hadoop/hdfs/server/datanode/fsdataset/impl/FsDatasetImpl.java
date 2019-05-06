@@ -2327,6 +2327,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
                      "from LazyWriter.join");
       }
     }
+
     cacheManager.shutdown();
   }
 

@@ -327,7 +327,7 @@ public final class PmemVolumeManager {
       if (nextIndex == count) {
         nextIndex = 0;
       }
-      byte index = (byte) (nextIndex++ % count);
+      byte index = nextIndex++;
       long availableBytes = usedBytesCounts.get(index).getAvailableBytes();
       if (availableBytes >= bytesCount) {
         return index;

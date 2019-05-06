@@ -591,7 +591,7 @@ public class FsDatasetCache {
     return cacheLoader;
   }
 
-  public void shutdown() {
+  void shutdown() {
     if (cacheLoader.isTransientCache()) {
       return;
     }
