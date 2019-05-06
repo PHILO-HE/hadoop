@@ -179,9 +179,13 @@ public final class PmemVolumeManager {
    */
   synchronized long reserve(ExtendedBlockId key, long bytesCount) {
     try {
-      Byte index = chooseVolume(bytesCount);
-      blockKeyToVolume.put(key, index);
-      return usedBytesCounts.get(index).reserve(bytesCount);
+      byte index = chooseVolume(bytesCount);
+      long usedBytes = usedBytesCounts.get(index).reserve(bytesCount);
+      // Put the entry into blockKeyToVolume if reserving bytes succeeded.
+      if (usedBytes > 0) {
+        blockKeyToVolume.put(key, index);
+      }
+      return usedBytes;
     } catch (IOException e) {
       LOG.warn(e.getMessage());
       return -1L;
@@ -263,7 +267,7 @@ public final class PmemVolumeManager {
       final String message = pmemDir + " is not a directory";
       throw new IllegalArgumentException(message);
     }
-    
+
     String realPmemDirPath = getRealPmemDir(pmemDir.getPath());
     File realPmemDir = new File(realPmemDirPath);
     realPmemDir.mkdir();
