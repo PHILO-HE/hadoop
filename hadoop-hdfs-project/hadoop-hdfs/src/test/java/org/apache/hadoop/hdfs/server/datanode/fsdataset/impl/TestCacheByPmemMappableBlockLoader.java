@@ -186,9 +186,9 @@ public class TestCacheByPmemMappableBlockLoader {
     for (int i = 0; i < 10; i++) {
       Byte index = pmemVolumeManager.chooseVolume(BLOCK_SIZE);
       String volume = pmemVolumeManager.getVolumeByIndex(index);
-      if (volume.equals(PMEM_DIR_0)) {
+      if (volume.equals(PmemVolumeManager.getRealPmemDir(PMEM_DIR_0))) {
         count1++;
-      } else if (volume.equals(PMEM_DIR_1)) {
+      } else if (volume.equals(PmemVolumeManager.getRealPmemDir(PMEM_DIR_1))) {
         count2++;
       } else {
         fail("Unexpected persistent storage location:" + volume);
@@ -262,9 +262,11 @@ public class TestCacheByPmemMappableBlockLoader {
       String expectFileName =
           PmemVolumeManager.getInstance().getCacheFileName(key);
       if (cachePath.startsWith(PMEM_DIR_0)) {
-        assertTrue(cachePath.equals(PMEM_DIR_0 + "/" + expectFileName));
+        assertTrue(cachePath.equals(
+            PmemVolumeManager.getRealPmemDir(PMEM_DIR_0) + "/" + expectFileName));
       } else if (cachePath.startsWith(PMEM_DIR_1)) {
-        assertTrue(cachePath.equals(PMEM_DIR_1 + "/" + expectFileName));
+        assertTrue(cachePath.equals(
+            PmemVolumeManager.getRealPmemDir(PMEM_DIR_1) + "/" + expectFileName));
       } else {
         fail("The cache path is not the expected one: " + cachePath);
       }

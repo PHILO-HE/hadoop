@@ -590,4 +590,12 @@ public class FsDatasetCache {
   MappableBlockLoader getCacheLoader() {
     return cacheLoader;
   }
+
+  public void shutdown() {
+    if (cacheLoader.isTransientCache()) {
+      return;
+    }
+    LOG.info("Clean up persistent memory cache during shutdown.");
+    PmemVolumeManager.getInstance().cleanup();
+  }
 }

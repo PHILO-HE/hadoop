@@ -106,6 +106,7 @@ public final class PmemVolumeManager {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemVolumeManager.class);
+  public static final String CACHE_DIR = "hdfs_pmem_cache";
   private static PmemVolumeManager pmemVolumeManager = null;
   private final ArrayList<String> pmemVolumes = new ArrayList<>();
   // Maintain which pmem volume a block is cached to.
@@ -212,13 +213,11 @@ public final class PmemVolumeManager {
     for (byte n = 0; n < volumes.length; n++) {
       try {
         File pmemDir = new File(volumes[n]);
-        verifyIfValidPmemVolume(pmemDir);
-        // Remove all files under the volume.
-        FileUtils.cleanDirectory(pmemDir);
-        this.pmemVolumes.add(volumes[n]);
+        File realPmemDir = verifyIfValidPmemVolume(pmemDir);
+        this.pmemVolumes.add(realPmemDir.getPath());
         long maxBytes;
         if (maxBytesPerPmem == -1) {
-          maxBytes = pmemDir.getUsableSpace();
+          maxBytes = realPmemDir.getUsableSpace();
         } else {
           maxBytes = maxBytesPerPmem;
         }
@@ -239,23 +238,38 @@ public final class PmemVolumeManager {
       throw new IOException(
           "At least one valid persistent memory volume is required!");
     }
+    cleanup();
+  }
+
+  void cleanup() {
+    // Remove all files under the volume.
+    for (String pmemDir: pmemVolumes) {
+      try {
+        FileUtils.cleanDirectory(new File(pmemDir));
+      } catch (IOException e) {
+        LOG.error("Failed to clean up " + pmemDir, e);
+      }
+    }
   }
 
   @VisibleForTesting
-  static void verifyIfValidPmemVolume(File pmemDir)
+  static File verifyIfValidPmemVolume(File pmemDir)
       throws IOException {
     if (!pmemDir.exists()) {
       final String message = pmemDir + " does not exist";
       throw new IOException(message);
     }
-
     if (!pmemDir.isDirectory()) {
       final String message = pmemDir + " is not a directory";
       throw new IllegalArgumentException(message);
     }
+    
+    String realPmemDirPath = getRealPmemDir(pmemDir.getPath());
+    File realPmemDir = new File(realPmemDirPath);
+    realPmemDir.mkdir();
 
     String uuidStr = UUID.randomUUID().toString();
-    String testFilePath = pmemDir.getPath() + "/.verify.pmem." + uuidStr;
+    String testFilePath = realPmemDir.getPath() + "/.verify.pmem." + uuidStr;
     byte[] contents = uuidStr.getBytes("UTF-8");
     RandomAccessFile testFile = null;
     MappedByteBuffer out = null;
@@ -264,15 +278,17 @@ public final class PmemVolumeManager {
       out = testFile.getChannel().map(FileChannel.MapMode.READ_WRITE, 0,
           contents.length);
       if (out == null) {
-        throw new IOException("Failed to map the test file under " + pmemDir);
+        throw new IOException(
+            "Failed to map the test file under " + realPmemDir);
       }
       out.put(contents);
       // Forces to write data to storage device containing the mapped file
       out.force();
+      return realPmemDir;
     } catch (IOException e) {
       throw new IOException(
           "Exception while writing data to persistent storage dir: " +
-              pmemDir, e);
+              realPmemDir, e);
     } finally {
       if (out != null) {
         out.clear();
@@ -288,6 +304,11 @@ public final class PmemVolumeManager {
         }
       }
     }
+  }
+
+  public static String getRealPmemDir(String rawPmemDir) {
+    return rawPmemDir.endsWith("/") ? rawPmemDir + CACHE_DIR :
+        rawPmemDir + "/" + CACHE_DIR;
   }
 
   /**
