@@ -71,8 +71,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    */
   @Override
   MappableBlock load(long length, FileInputStream blockIn,
-                            FileInputStream metaIn, String blockFileName,
-                            ExtendedBlockId key)
+                     FileInputStream metaIn, String blockFileName,
+                     ExtendedBlockId key)
       throws IOException {
     PmemMappedBlock mappableBlock = null;
     String filePath = null;
