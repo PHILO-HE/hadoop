@@ -268,9 +268,10 @@ public final class PmemVolumeManager {
       throw new IllegalArgumentException(message);
     }
 
-    String realPmemDirPath = getRealPmemDir(pmemDir.getPath());
-    File realPmemDir = new File(realPmemDirPath);
-    realPmemDir.mkdir();
+    File realPmemDir = new File(getRealPmemDir(pmemDir.getPath()));
+    if (!realPmemDir.exists() && !realPmemDir.mkdir()) {
+      throw new IOException("Failed to create " + realPmemDir.getPath());
+    }
 
     String uuidStr = UUID.randomUUID().toString();
     String testFilePath = realPmemDir.getPath() + "/.verify.pmem." + uuidStr;

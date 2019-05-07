@@ -591,11 +591,14 @@ public class FsDatasetCache {
     return cacheLoader;
   }
 
+  /**
+   * Clean up cache on persistent memory.
+   */
   void shutdown() {
     if (cacheLoader.isTransientCache()) {
       return;
     }
-    LOG.info("Clean up persistent memory cache during shutdown.");
+    LOG.info("Clean up cache on persistent memory during shutdown.");
     PmemVolumeManager.getInstance().cleanup();
   }
 }
