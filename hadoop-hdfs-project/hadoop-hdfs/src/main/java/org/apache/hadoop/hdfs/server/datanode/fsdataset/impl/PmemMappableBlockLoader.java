@@ -25,7 +25,6 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
@@ -87,7 +85,6 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
     FileChannel blockChannel = null;
     RandomAccessFile file = null;
-    MappedByteBuffer out = null;
     try {
       blockChannel = blockIn.getChannel();
       if (blockChannel == null) {
@@ -96,22 +93,14 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
       filePath = pmemVolumeManager.getCachePath(key);
       file = new RandomAccessFile(filePath, "rw");
-      out = file.getChannel().
-          map(FileChannel.MapMode.READ_WRITE, 0, length);
-      if (out == null) {
-        throw new IOException("Failed to map the block " + blockFileName +
-            " to persistent storage.");
-      }
-      verifyChecksumAndMapBlock(out, length, metaIn, blockChannel,
-          blockFileName);
+      blockChannel.transferTo(0, length, file.getChannel());
+
+      verifyChecksum(length, metaIn, blockChannel, blockFileName);
       mappableBlock = new PmemMappedBlock(length, key);
       LOG.info("Successfully cached one replica:{} into persistent memory"
           + ", [cached path={}, length={}]", key, filePath, length);
     } finally {
       IOUtils.closeQuietly(blockChannel);
-      if (out != null) {
-        NativeIO.POSIX.munmap(out);
-      }
       IOUtils.closeQuietly(file);
       if (mappableBlock == null) {
         LOG.debug("Delete {} due to unsuccessful mapping.", filePath);
@@ -125,9 +114,8 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
    * Verifies the block's checksum meanwhile maps block to persistent memory.
    * This is an I/O intensive operation.
    */
-  private void verifyChecksumAndMapBlock(
-      MappedByteBuffer out, long length, FileInputStream metaIn,
-      FileChannel blockChannel, String blockFileName)
+  private void verifyChecksum(long length, FileInputStream metaIn,
+                              FileChannel blockChannel, String blockFileName)
       throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
@@ -168,18 +156,12 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
         checksumBuf.flip();
         checksum.verifyChunkedSums(blockBuf, checksumBuf, blockFileName,
             bytesVerified);
-
-        // / Copy data to persistent file
-        out.put(blockBuf);
         // positioning the
         bytesVerified += bytesRead;
-
         // Clear buffer
         blockBuf.clear();
         checksumBuf.clear();
       }
-      // Forces to write data to storage device containing the mapped file
-      out.force();
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
