@@ -312,8 +312,7 @@ public final class PmemVolumeManager {
   }
 
   public static String getRealPmemDir(String rawPmemDir) {
-    return rawPmemDir.endsWith("/") ? rawPmemDir + CACHE_DIR :
-        rawPmemDir + "/" + CACHE_DIR;
+    return new File(rawPmemDir, CACHE_DIR).getAbsolutePath();
   }
 
   /**

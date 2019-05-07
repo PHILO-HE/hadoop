@@ -209,4 +209,10 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   public boolean isTransientCache() {
     return false;
   }
+
+  @Override
+  void shutdown() {
+    LOG.info("Clean up cache on persistent memory during shutdown.");
+    PmemVolumeManager.getInstance().cleanup();
+  }
 }

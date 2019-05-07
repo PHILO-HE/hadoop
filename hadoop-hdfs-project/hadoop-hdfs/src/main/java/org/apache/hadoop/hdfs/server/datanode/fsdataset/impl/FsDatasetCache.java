@@ -592,13 +592,9 @@ public class FsDatasetCache {
   }
 
   /**
-   * Clean up cache on persistent memory.
+   * This method can be executed during DataNode shutdown.
    */
   void shutdown() {
-    if (cacheLoader.isTransientCache()) {
-      return;
-    }
-    LOG.info("Clean up cache on persistent memory during shutdown.");
-    PmemVolumeManager.getInstance().cleanup();
+    cacheLoader.shutdown();
   }
 }

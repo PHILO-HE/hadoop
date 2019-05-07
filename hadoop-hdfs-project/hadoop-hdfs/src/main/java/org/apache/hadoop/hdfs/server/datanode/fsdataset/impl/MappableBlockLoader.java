@@ -101,6 +101,13 @@ public abstract class MappableBlockLoader {
   abstract boolean isTransientCache();
 
   /**
+   * Clean up cache, can be used during DataNode shutdown.
+   */
+  void shutdown() {
+    // Do nothing.
+  }
+
+  /**
    * Reads bytes into a buffer until EOF or the buffer's limit is reached.
    */
   protected int fillBuffer(FileChannel channel, ByteBuffer buf)
