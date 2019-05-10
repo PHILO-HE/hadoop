@@ -137,8 +137,9 @@ public class NativeIO {
         return msg;
       }
     }
+
     // Denotes the state of supporting PMDK. The value is set by JNI.
-    public static SupportState PMDK_SUPPORT_STATE =
+    private static SupportState pmdkSupportState =
         SupportState.PMDK_LIB_NOT_FOUND;
 
     private static final Logger LOG = LoggerFactory.getLogger(NativeIO.class);
@@ -168,7 +169,7 @@ public class NativeIO {
     public static void setPmdkSupportState(int stateCode) {
       for (SupportState state : SupportState.values()) {
         if (state.getStateCode() == stateCode) {
-          PMDK_SUPPORT_STATE = state;
+          pmdkSupportState = state;
           return;
         }
       }
@@ -176,8 +177,8 @@ public class NativeIO {
     }
 
     public static boolean isPmemAvailable() {
-      LOG.info(PMDK_SUPPORT_STATE.getMessage());
-      return PMDK_SUPPORT_STATE == SupportState.SUPPORTED;
+      LOG.info(pmdkSupportState.getMessage());
+      return pmdkSupportState == SupportState.SUPPORTED;
     }
 
     /**

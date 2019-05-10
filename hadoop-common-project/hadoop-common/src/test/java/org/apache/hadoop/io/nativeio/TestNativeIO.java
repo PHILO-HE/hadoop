@@ -931,7 +931,8 @@ public class TestNativeIO {
         }
       }
     } catch (Throwable e) {
-      LOG.error("Failed to delete the mapped file " + filePath + " from persistent memory", e);
+      LOG.error("Failed to delete the mapped file " + filePath +
+          " from persistent memory", e);
     }
   }
 }
