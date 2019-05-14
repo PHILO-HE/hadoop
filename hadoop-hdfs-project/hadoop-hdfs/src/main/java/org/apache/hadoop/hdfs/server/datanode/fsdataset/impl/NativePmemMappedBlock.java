@@ -53,6 +53,10 @@ public class NativePmemMappedBlock implements MappableBlock {
     return length;
   }
 
+  public long getAddress() {
+    return pmemMappedAddres;
+  }
+
   @Override
   public void close() {
     if (pmemMappedAddres != -1L) {
