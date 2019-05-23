@@ -75,28 +75,33 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
                      ExtendedBlockId key)
       throws IOException {
     PmemMappedBlock mappableBlock = null;
-    String filePath = null;
+    String cachePath = null;
 
     FileChannel blockChannel = null;
-    RandomAccessFile file = null;
+    RandomAccessFile cacheFile = null;
     try {
       blockChannel = blockIn.getChannel();
       if (blockChannel == null) {
         throw new IOException("Block InputStream has no FileChannel.");
       }
-      filePath = pmemVolumeManager.getCachePath(key);
-      file = new RandomAccessFile(filePath, "rw");
-      blockChannel.transferTo(0, length, file.getChannel());
-      verifyChecksum(length, metaIn, blockChannel, blockFileName);
+      cachePath = pmemVolumeManager.getCachePath(key);
+      cacheFile = new RandomAccessFile(cachePath, "rw");
+      blockChannel.transferTo(0, length, cacheFile.getChannel());
+
+      // Verify checksum for the cached data instead of block file.
+      // The file channel should be repositioned.
+      cacheFile.getChannel().position(0);
+      verifyChecksum(length, metaIn, cacheFile.getChannel(), blockFileName);
+
       mappableBlock = new PmemMappedBlock(length, key);
       LOG.info("Successfully cached one replica:{} into persistent memory"
-          + ", [cached path={}, length={}]", key, filePath, length);
+          + ", [cached path={}, length={}]", key, cachePath, length);
     } finally {
       IOUtils.closeQuietly(blockChannel);
-      IOUtils.closeQuietly(file);
+      IOUtils.closeQuietly(cacheFile);
       if (mappableBlock == null) {
-        LOG.debug("Delete {} due to unsuccessful mapping.", filePath);
-        FsDatasetUtil.deleteMappedFile(filePath);
+        LOG.debug("Delete {} due to unsuccessful mapping.", cachePath);
+        FsDatasetUtil.deleteMappedFile(cachePath);
       }
     }
     return mappableBlock;
