@@ -789,8 +789,8 @@ public class TestNativeIO {
   @Test (timeout=10000)
   public void testPmemCheckParameters() {
     assumeNotWindows("Native PMDK not supported on Windows");
-    // Skip testing while the build or environment does not support PMEM
-    assumeTrue(NativeIO.POSIX.isPmemAvailable());
+    // Skip testing while the build or environment does not support PMDK
+    assumeTrue(NativeIO.POSIX.isPmdkAvailable());
 
     // Please make sure /mnt/pmem0 is a persistent memory device with total
     // volume size 'volumeSize'
@@ -820,8 +820,8 @@ public class TestNativeIO {
   @Test (timeout=10000)
   public void testPmemMapMultipleFiles() {
     assumeNotWindows("Native PMDK not supported on Windows");
-    // Skip testing while the build or environment does not support PMEM
-    assumeTrue(NativeIO.POSIX.isPmemAvailable());
+    // Skip testing while the build or environment does not support PMDK
+    assumeTrue(NativeIO.POSIX.isPmdkAvailable());
 
     // Please make sure /mnt/pmem0 is a persistent memory device with total
     // volume size 'volumeSize'
@@ -850,8 +850,8 @@ public class TestNativeIO {
   @Test (timeout=10000)
   public void testPmemMapBigFile() {
     assumeNotWindows("Native PMDK not supported on Windows");
-    // Skip testing while the build or environment does not support PMEM
-    assumeTrue(NativeIO.POSIX.isPmemAvailable());
+    // Skip testing while the build or environment does not support PMDK
+    assumeTrue(NativeIO.POSIX.isPmdkAvailable());
 
     // Please make sure /mnt/pmem0 is a persistent memory device with total
     // volume size 'volumeSize'
@@ -874,8 +874,8 @@ public class TestNativeIO {
   @Test (timeout=10000)
   public void testPmemCopy() throws IOException {
     assumeNotWindows("Native PMDK not supported on Windows");
-    // Skip testing while the build or environment does not support PMEM
-    assumeTrue(NativeIO.POSIX.isPmemAvailable());
+    // Skip testing while the build or environment does not support PMDK
+    assumeTrue(NativeIO.POSIX.isPmdkAvailable());
 
     // Create and map a block file. Please make sure /mnt/pmem0 is a persistent
     // memory device.

@@ -228,13 +228,12 @@ public class FsDatasetCache {
         !isCached(bpid, blockId)) {
       return -1;
     }
-    if (!(cacheLoader instanceof NativePmemMappableBlockLoader)) {
+    if (!(cacheLoader.isNativePmemCacheLoader())) {
       return -1;
     }
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);
     MappableBlock mappableBlock = mappableBlockMap.get(key).mappableBlock;
-    assert mappableBlock instanceof NativePmemMappedBlock;
-    return ((NativePmemMappedBlock) mappableBlock).getAddress();
+    return mappableBlock.getAddress();
   }
 
   /**

@@ -79,7 +79,7 @@ Optional packages:
 * ZStandard compression
     $ sudo apt-get install zstd
 * PMDK library for storage class memory(SCM) as HDFS cache backend
-  Please refer to http://pmem.io/ amd https://github.com/pmem/pmdk
+  Please refer to http://pmem.io/ and https://github.com/pmem/pmdk
 
 ----------------------------------------------------------------------------------
 Maven main modules:
@@ -282,8 +282,8 @@ Maven build goals:
     option provided, the build will fail if libpmem library is not found. If this option
     is not given, the build will generate a version of Hadoop with libhadoop.so.
     And storage class memory(SCM) backed HDFS cache is still supported without PMDK involved.
-    It is recommended to build the project with this option if user plans to use SCM backed
-    HDFS cache.
+    Because PMDK can bring better caching write/read performance, it is recommended to build
+    the project with this option if user plans to use SCM backed HDFS cache.
   * -Dpmdk.lib is used to specify a nonstandard location for PMDK libraries if they are not
     under /usr/lib or /usr/lib64.
   * -Dbundle.pmdk is used to copy the specified libpmem libraries into the distribution tar

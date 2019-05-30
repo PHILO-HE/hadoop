@@ -64,8 +64,7 @@ public abstract class MappableBlockLoader {
    * @return               The Mappable block.
    */
   abstract MappableBlock load(long length, FileInputStream blockIn,
-                              FileInputStream metaIn, String blockFileName,
-                              ExtendedBlockId key)
+      FileInputStream metaIn, String blockFileName, ExtendedBlockId key)
       throws IOException;
 
   /**
@@ -107,6 +106,11 @@ public abstract class MappableBlockLoader {
   abstract boolean isTransientCache();
 
   /**
+   * Check whether this is a native pmem cache loader.
+   */
+  abstract boolean isNativePmemCacheLoader();
+
+  /**
    * Clean up cache, can be used during DataNode shutdown.
    */
   void shutdown() {
@@ -117,8 +121,7 @@ public abstract class MappableBlockLoader {
    * Verifies the block's checksum. This is an I/O intensive operation.
    */
   protected void verifyChecksum(long length, FileInputStream metaIn,
-                                FileChannel blockChannel, String blockFileName)
-      throws IOException {
+      FileChannel blockChannel, String blockFileName) throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
     BlockMetadataHeader header =

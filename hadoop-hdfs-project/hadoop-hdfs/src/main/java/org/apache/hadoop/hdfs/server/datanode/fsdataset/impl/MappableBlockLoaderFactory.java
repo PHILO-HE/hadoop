@@ -43,7 +43,7 @@ public final class MappableBlockLoaderFactory {
     if (conf.getPmemVolumes() == null || conf.getPmemVolumes().length == 0) {
       return new MemoryMappableBlockLoader();
     }
-    if (NativeIO.isAvailable() && NativeIO.POSIX.isPmemAvailable()) {
+    if (NativeIO.isAvailable() && NativeIO.POSIX.isPmdkAvailable()) {
       return new NativePmemMappableBlockLoader();
     }
     return new PmemMappableBlockLoader();

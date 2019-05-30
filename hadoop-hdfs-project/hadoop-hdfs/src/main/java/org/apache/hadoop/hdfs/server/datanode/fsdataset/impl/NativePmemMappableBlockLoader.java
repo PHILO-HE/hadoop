@@ -25,6 +25,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.io.nativeio.NativeIO.POSIX;
 import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,11 +75,11 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
    */
   @Override
   public MappableBlock load(long length, FileInputStream blockIn,
-                            FileInputStream metaIn, String blockFileName,
-                            ExtendedBlockId key)
+      FileInputStream metaIn, String blockFileName,
+      ExtendedBlockId key)
       throws IOException {
     NativePmemMappedBlock mappableBlock = null;
-    NativeIO.POSIX.PmemMappedRegion region = null;
+    POSIX.PmemMappedRegion region = null;
     String filePath = null;
 
     FileChannel blockChannel = null;
@@ -90,7 +91,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
 
       assert NativeIO.isAvailable();
       filePath = PmemVolumeManager.getInstance().getCachePath(key);
-      region = NativeIO.POSIX.Pmem.mapBlock(filePath, length);
+      region = POSIX.Pmem.mapBlock(filePath, length);
       if (region == null) {
         throw new IOException("Failed to map the block " + blockFileName +
             " to persistent storage.");
@@ -107,7 +108,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
       if (mappableBlock == null) {
         if (region != null) {
           // unmap content from persistent memory
-          NativeIO.POSIX.Pmem.unmapBlock(region.getAddress(),
+          POSIX.Pmem.unmapBlock(region.getAddress(),
               region.getLength());
           FsDatasetUtil.deleteMappedFile(filePath);
         }
@@ -120,10 +121,9 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
    * Verifies the block's checksum meanwhile map block to persistent memory.
    * This is an I/O intensive operation.
    */
-  private void verifyChecksumAndMapBlock(
-      NativeIO.POSIX.PmemMappedRegion region, long length,
-      FileInputStream metaIn, FileChannel blockChannel, String blockFileName)
-      throws IOException {
+  private void verifyChecksumAndMapBlock(POSIX.PmemMappedRegion region,
+      long length, FileInputStream metaIn, FileChannel blockChannel,
+      String blockFileName) throws IOException {
     // Verify the checksum from the block's meta file
     // Get the DataChecksum from the meta file header
     BlockMetadataHeader header =
@@ -170,7 +170,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
         // Success
         bytesVerified += bytesRead;
         // Copy data to persistent file
-        NativeIO.POSIX.Pmem.memCopy(blockBuf.array(), mappedAddress,
+        POSIX.Pmem.memCopy(blockBuf.array(), mappedAddress,
             region.isPmem(), bytesRead);
         mappedAddress += bytesRead;
         // Clear buffer
@@ -178,10 +178,15 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
         checksumBuf.clear();
       }
       if (region != null) {
-        NativeIO.POSIX.Pmem.memSync(region);
+        POSIX.Pmem.memSync(region);
       }
     } finally {
       IOUtils.closeQuietly(metaChannel);
     }
+  }
+
+  @Override
+  public boolean isNativePmemCacheLoader() {
+    return true;
   }
 }

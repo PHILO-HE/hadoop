@@ -806,11 +806,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       long addr = cacheManager.getCacheAddress(
           b.getBlockPoolId(), b.getBlockId());
       if (addr != -1) {
-        LOG.info("Get InputStream by cache address.");
+        LOG.debug("Get InputStream by cache address.");
         return FsDatasetUtil.getDirectInputStream(
             addr, info.getBlockDataLength());
       }
-      LOG.info("Get InputStream by cache path.");
+      LOG.debug("Get InputStream by cache file path.");
       return FsDatasetUtil.getInputStreamAndSeek(
           new File(cachePath), seekOffset);
     }

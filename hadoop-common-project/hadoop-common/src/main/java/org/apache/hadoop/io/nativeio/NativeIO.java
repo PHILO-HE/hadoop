@@ -166,6 +166,7 @@ public class NativeIO {
       POSIX.cacheManipulator = cacheManipulator;
     }
 
+    // This method is invoked by JNI.
     public static void setPmdkSupportState(int stateCode) {
       for (SupportState state : SupportState.values()) {
         if (state.getStateCode() == stateCode) {
@@ -176,7 +177,7 @@ public class NativeIO {
       LOG.error("The state code: " + stateCode + " is unrecognized!");
     }
 
-    public static boolean isPmemAvailable() {
+    public static boolean isPmdkAvailable() {
       LOG.info(pmdkSupportState.getMessage());
       return pmdkSupportState == SupportState.SUPPORTED;
     }

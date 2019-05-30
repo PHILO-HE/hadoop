@@ -1489,7 +1489,6 @@ JNIEnv *env, jclass thisClass, jlong address, jlong length) {
 JNIEXPORT jobject JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_pmemCreateMapFile(
 JNIEnv *env, jclass thisClass, jstring filePath, jlong fileLength) {
   #if (defined UNIX) && (defined HADOOP_PMDK_LIBRARY)
-
     /* create a pmem file and memory map it */
     const char * path = NULL;
     void * pmemaddr = NULL;

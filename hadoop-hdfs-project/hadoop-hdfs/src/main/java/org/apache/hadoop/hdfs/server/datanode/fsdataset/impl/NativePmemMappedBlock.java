@@ -36,14 +36,14 @@ public class NativePmemMappedBlock implements MappableBlock {
   private static final Logger LOG =
       LoggerFactory.getLogger(NativePmemMappedBlock.class);
 
-  private long pmemMappedAddres = -1L;
+  private long pmemMappedAddress = -1L;
   private long length;
   private ExtendedBlockId key;
 
-  NativePmemMappedBlock(long pmemMappedAddres, long length,
-                        ExtendedBlockId key) {
+  NativePmemMappedBlock(long pmemMappedAddress, long length,
+      ExtendedBlockId key) {
     assert length > 0;
-    this.pmemMappedAddres = pmemMappedAddres;
+    this.pmemMappedAddress = pmemMappedAddress;
     this.length = length;
     this.key = key;
   }
@@ -53,13 +53,14 @@ public class NativePmemMappedBlock implements MappableBlock {
     return length;
   }
 
+  @Override
   public long getAddress() {
-    return pmemMappedAddres;
+    return pmemMappedAddress;
   }
 
   @Override
   public void close() {
-    if (pmemMappedAddres != -1L) {
+    if (pmemMappedAddress != -1L) {
       String cacheFilePath =
           PmemVolumeManager.getInstance().getCachePath(key);
       try {
@@ -67,12 +68,12 @@ public class NativePmemMappedBlock implements MappableBlock {
         // length not aligned with page size, although the length is returned by
         // pmem_map_file.
         boolean success =
-            NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddres, length);
+            NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddress, length);
         if (!success) {
           throw new IOException("Failed to unmap the mapped file from " +
-              "pmem address: " + pmemMappedAddres);
+              "pmem address: " + pmemMappedAddress);
         }
-        pmemMappedAddres = -1L;
+        pmemMappedAddress = -1L;
         FsDatasetUtil.deleteMappedFile(cacheFilePath);
         LOG.info("Successfully uncached one replica:{} from persistent memory"
             + ", [cached path={}, length={}]", key, cacheFilePath, length);
