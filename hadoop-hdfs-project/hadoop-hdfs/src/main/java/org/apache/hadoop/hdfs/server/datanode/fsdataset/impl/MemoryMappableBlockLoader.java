@@ -117,7 +117,7 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public boolean isNativePmemCacheLoader() {
+  public boolean isNativeLoader() {
     return false;
   }
 }

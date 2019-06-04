@@ -43,9 +43,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
-    if (this.getClass().equals(PmemMappableBlockLoader.class)) {
-      LOG.info("Initializing cache loader: PmemMappableBlockLoader.");
-    }
+    LOG.info("Initializing cache loader: " + this.getClass().getName());
     DNConf dnConf = cacheManager.getDnConf();
     PmemVolumeManager.init(dnConf.getPmemVolumes());
     pmemVolumeManager = PmemVolumeManager.getInstance();
@@ -134,7 +132,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public boolean isNativePmemCacheLoader() {
+  public boolean isNativeLoader() {
     return false;
   }
 

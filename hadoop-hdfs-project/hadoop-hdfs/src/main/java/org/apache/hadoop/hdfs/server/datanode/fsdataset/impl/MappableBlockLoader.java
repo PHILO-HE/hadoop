@@ -108,7 +108,7 @@ public abstract class MappableBlockLoader {
   /**
    * Check whether this is a native pmem cache loader.
    */
-  abstract boolean isNativePmemCacheLoader();
+  abstract boolean isNativeLoader();
 
   /**
    * Clean up cache, can be used during DataNode shutdown.

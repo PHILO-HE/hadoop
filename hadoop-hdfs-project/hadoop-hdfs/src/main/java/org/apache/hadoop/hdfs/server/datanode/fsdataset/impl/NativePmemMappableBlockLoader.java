@@ -48,7 +48,6 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
 
   @Override
   void initialize(FsDatasetCache cacheManager) throws IOException {
-    LOG.info("Initializing cache loader: NativePmemMappableBlockLoader");
     super.initialize(cacheManager);
   }
 
@@ -186,7 +185,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
   }
 
   @Override
-  public boolean isNativePmemCacheLoader() {
+  public boolean isNativeLoader() {
     return true;
   }
 }

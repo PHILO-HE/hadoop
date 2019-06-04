@@ -65,8 +65,8 @@ public class NativePmemMappedBlock implements MappableBlock {
           PmemVolumeManager.getInstance().getCachePath(key);
       try {
         // Current libpmem will report error when pmem_unmap is called with
-        // length not aligned with page size, although the length is returned by
-        // pmem_map_file.
+        // length not aligned with page size, although the length is returned
+        // by pmem_map_file.
         boolean success =
             NativeIO.POSIX.Pmem.unmapBlock(pmemMappedAddress, length);
         if (!success) {

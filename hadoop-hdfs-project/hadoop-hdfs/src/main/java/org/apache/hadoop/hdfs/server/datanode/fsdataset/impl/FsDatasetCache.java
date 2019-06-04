@@ -228,7 +228,7 @@ public class FsDatasetCache {
         !isCached(bpid, blockId)) {
       return -1;
     }
-    if (!(cacheLoader.isNativePmemCacheLoader())) {
+    if (!(cacheLoader.isNativeLoader())) {
       return -1;
     }
     ExtendedBlockId key = new ExtendedBlockId(blockId, bpid);

@@ -51,7 +51,7 @@ public class PmemMappedBlock implements MappableBlock {
 
   @Override
   public long getAddress() {
-    return -1;
+    return -1L;
   }
 
   @Override
