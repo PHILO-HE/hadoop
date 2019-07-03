@@ -178,13 +178,19 @@ public class FsDatasetCache {
               ".  Reconfigure this to " + minRevocationPollingMs);
     }
     this.revocationPollingMs = confRevocationPollingMs;
-    // Both lazy writer and read cache are sharing this statistics.
-    this.memCacheStats = new MemoryCacheStats(
-        dataset.datanode.getDnConf().getMaxLockedMemory());
 
     this.cacheLoader = MappableBlockLoaderFactory.createCacheLoader(
         this.getDnConf());
     cacheLoader.initialize(this);
+
+    // Both lazy writer and read cache are sharing this statistics.
+    if (isPmemCacheEnabled()) {
+      // Both lazy writer and read cache are sharing this statistics.
+      this.memCacheStats = new MemoryCacheStats(0L);
+    } else {
+      this.memCacheStats = new MemoryCacheStats(
+          dataset.datanode.getDnConf().getMaxLockedMemory());
+    }
   }
 
   /**
