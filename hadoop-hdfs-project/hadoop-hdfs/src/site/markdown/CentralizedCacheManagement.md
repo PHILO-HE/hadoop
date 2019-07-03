@@ -202,11 +202,13 @@ Configuration
 
 In order to lock block files into memory, the DataNode relies on native JNI code found in `libhadoop.so` or `hadoop.dll` on Windows. Be sure to [enable JNI](../hadoop-common/NativeLibraries.html) if you are using HDFS centralized cache management.
 
+Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, PMDK should be installed beforehand before building hadoop.
+
 ### Configuration Properties
 
 #### Required
 
-Be sure to configure the following:
+Be sure to configure one of the following properties for DRAM cache or persistent memory cache:
 
 *   dfs.datanode.max.locked.memory
 
@@ -216,19 +218,13 @@ Be sure to configure the following:
 
     This setting is shared with the [Lazy Persist Writes feature](./MemoryStorage.html). The Data Node will ensure that the combined memory used by Lazy Persist Writes and Centralized Cache Management does not exceed the amount configured in `dfs.datanode.max.locked.memory`.
 
+*   dfs.datanode.cache.pmem.dirs
+
+    This property specifies the cache volumes of persistent memory. For multiply volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. So there is no need to configure `dfs.datanode.max.locked.memory`.
+
 #### Optional
 
 The following properties are not required, but may be specified for tuning:
-
-*   dfs.datanode.cache.loader.class
-
-    Currently, there are three cache loaders implemented: MemoryMappableBlockLoader, FileMappableBlockLoader and PmemMappableBlockLoader. By default, MemoryMappableBlockLoader is used and it maps block replica into memory. FileMappableBlockLoader can map block to persistent memory with mapped byte buffer, which is implemented by Java code. PmemMappableBlockLoader can also cache block replica to persistent memory, which is implemented with native PMDK libs.
-
-    The value of `dfs.datanode.cache.pmem.dirs` specifies the persistent memory directory, which must be configured if FileMappableBlockLoader or PmemMappableBlockLoader is used.
-
-*   dfs.datanode.cache.pmem.dirs
-
-    This property specifies the cache volumes of SCM, which is required by FileMappableBlockLoader and PmemMappableBlockLoader configured for `dfs.datanode.cache.loader.class`. For multiply directories, they should be separated with “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty.
 
 *   dfs.namenode.path.based.cache.refresh.interval.ms
 
