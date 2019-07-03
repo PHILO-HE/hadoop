@@ -557,7 +557,7 @@ public class FsDatasetCache {
   /**
    * Get the approximate amount of DRAM cache space used.
    */
-  public long getCacheUsed() {
+  public long getMemCacheUsed() {
     return memCacheStats.getCacheUsed();
   }
 
@@ -573,9 +573,18 @@ public class FsDatasetCache {
   }
 
   /**
-   * Get the maximum amount of bytes we can cache on DRAM.  This is a constant.
+   * Get the approximate amount of cache space used either on DRAM or
+   * on persistent memory.
+   * @return
    */
-  public long getCacheCapacity() {
+  public long getCacheUsed() {
+    return cacheLoader.getCacheUsed();
+  }
+
+  /**
+   * Get the maximum amount of bytes we can cache on DRAM. This is a constant.
+   */
+  public long getMemCacheCapacity() {
     return memCacheStats.getCacheCapacity();
   }
 
@@ -588,6 +597,14 @@ public class FsDatasetCache {
       return cacheLoader.getCacheCapacity();
     }
     return 0;
+  }
+
+  /**
+   * Get the maximum amount of bytes we can cache either on DRAM or
+   * on persistent memory. This is a constant.
+   */
+  public long getCacheCapacity() {
+    return cacheLoader.getCacheCapacity();
   }
 
   public long getNumBlocksFailedToCache() {
