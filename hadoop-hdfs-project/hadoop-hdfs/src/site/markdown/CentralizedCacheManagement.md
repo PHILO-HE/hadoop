@@ -202,7 +202,7 @@ Configuration
 
 In order to lock block files into memory, the DataNode relies on native JNI code found in `libhadoop.so` or `hadoop.dll` on Windows. Be sure to [enable JNI](../hadoop-common/NativeLibraries.html) if you are using HDFS centralized cache management.
 
-Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, PMDK should be installed before building hadoop.
+Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, please refer to `BUILDING.txt` to build hadoop with PMDK support.
 
 ### Configuration Properties
 
