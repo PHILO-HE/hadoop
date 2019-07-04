@@ -208,7 +208,7 @@ Currently, there are two implementations for persistent memory cache. One depend
 
 #### Required
 
-Be sure to configure one of the following properties for DRAM cache or persistent memory cache:
+Be sure to configure one of the following properties for DRAM cache or persistent memory cache. Please note that DRAM cache and persistent cache cannot coexist on a DataNode.
 
 *   dfs.datanode.max.locked.memory
 
