@@ -32,7 +32,7 @@ Centralized cache management in HDFS has many significant advantages.
 
 4.  Centralized caching can improve overall cluster memory utilization. When relying on the OS buffer cache at each DataNode, repeated reads of a block will result in all *n* replicas of the block being pulled into buffer cache. With centralized cache management, a user can explicitly pin only *m* of the *n* replicas, saving *n-m* memory.
 
-5.  HDFS supports non-volatile storage class memory (SCM, also known as persistent memory) cache in Linux platform. User can enable either memory cache or SCM cache for a DataNode. Memory cache and SCM cache can coexist among DataNodes. In the current implementation, the cache data in SCM will be cleaned up when DataNode restarts. Supporting persistent HDFS cache on SCM will be considered in the future.
+5.  HDFS supports non-volatile storage class memory (SCM, also known as persistent memory) cache in Linux platform. User can enable either memory cache or SCM cache for a DataNode. Memory cache and SCM cache can coexist among DataNodes. In the current implementation, the cache data in SCM will be cleaned up when DataNode restarts. Persistent HDFS cache support on SCM will be considered in the future.
 
 Use Cases
 ---------
@@ -202,7 +202,7 @@ Configuration
 
 In order to lock block files into memory, the DataNode relies on native JNI code found in `libhadoop.so` or `hadoop.dll` on Windows. Be sure to [enable JNI](../hadoop-common/NativeLibraries.html) if you are using HDFS centralized cache management.
 
-Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, PMDK should be installed beforehand before building hadoop.
+Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, PMDK should be installed before building hadoop.
 
 ### Configuration Properties
 
@@ -220,7 +220,7 @@ Be sure to configure one of the following properties for DRAM cache or persisten
 
 *   dfs.datanode.cache.pmem.dirs
 
-    This property specifies the cache volumes of persistent memory. For multiply volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. So there is no need to configure `dfs.datanode.max.locked.memory`.
+    This property specifies the cache volume of persistent memory. For multiply volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. And there is no need to configure `dfs.datanode.max.locked.memory`.
 
 #### Optional
 
