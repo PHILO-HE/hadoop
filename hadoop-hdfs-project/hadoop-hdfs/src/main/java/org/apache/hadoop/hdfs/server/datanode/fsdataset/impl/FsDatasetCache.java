@@ -185,7 +185,7 @@ public class FsDatasetCache {
 
     // Both lazy writer and read cache are sharing this statistics.
     if (isPmemCacheEnabled()) {
-      // Both lazy writer and read cache are sharing this statistics.
+      // The configuration for max locked memory is shaded.
       this.memCacheStats = new MemoryCacheStats(0L);
     } else {
       this.memCacheStats = new MemoryCacheStats(
