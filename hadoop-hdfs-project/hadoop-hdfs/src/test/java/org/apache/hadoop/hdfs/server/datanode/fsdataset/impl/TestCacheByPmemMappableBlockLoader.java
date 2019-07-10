@@ -84,7 +84,6 @@ public class TestCacheByPmemMappableBlockLoader {
   private static DistributedFileSystem fs;
   private static DataNode dn;
   private static FsDatasetCache cacheManager;
-  private static PmemMappableBlockLoader cacheLoader;
   /**
    * Used to pause DN BPServiceActor threads. BPSA threads acquire the
    * shared read lock. The test acquires the write lock for exclusive access.
@@ -151,7 +150,6 @@ public class TestCacheByPmemMappableBlockLoader {
     fs = cluster.getFileSystem();
     dn = cluster.getDataNodes().get(0);
     cacheManager = ((FsDatasetImpl) dn.getFSDataset()).cacheManager;
-    cacheLoader = (PmemMappableBlockLoader) cacheManager.getCacheLoader();
   }
 
   @After

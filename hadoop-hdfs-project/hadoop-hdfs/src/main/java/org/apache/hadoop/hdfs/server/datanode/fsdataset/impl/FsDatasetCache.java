@@ -631,11 +631,6 @@ public class FsDatasetCache {
     return (val != null) && val.state.shouldAdvertise();
   }
 
-  @VisibleForTesting
-  MappableBlockLoader getCacheLoader() {
-    return cacheLoader;
-  }
-
   /**
    * This method can be executed during DataNode shutdown.
    */
