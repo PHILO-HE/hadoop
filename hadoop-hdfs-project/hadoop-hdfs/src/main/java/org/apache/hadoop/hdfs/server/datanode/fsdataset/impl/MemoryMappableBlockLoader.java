@@ -39,12 +39,15 @@ import java.nio.channels.FileChannel;
 public class MemoryMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(MemoryMappableBlockLoader.class);
-  private MemoryCacheStats memCacheStats;
+  private CacheStats memCacheStats;
 
   @Override
-  void initialize(FsDatasetCache cacheManager) throws IOException {
+  CacheStats initialize(FsDatasetCache cacheManager) throws IOException {
     LOG.info("Initializing cache loader: MemoryMappableBlockLoader.");
     this.memCacheStats = cacheManager.getMemCacheStats();
+    this.memCacheStats = new CacheStats(
+        cacheManager.getDnConf().getMaxLockedMemory());
+    return memCacheStats;
   }
 
   /**

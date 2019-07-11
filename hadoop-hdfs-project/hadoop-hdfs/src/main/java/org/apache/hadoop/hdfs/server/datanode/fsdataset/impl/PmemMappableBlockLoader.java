@@ -42,11 +42,15 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   private PmemVolumeManager pmemVolumeManager;
 
   @Override
-  void initialize(FsDatasetCache cacheManager) throws IOException {
+  CacheStats initialize(FsDatasetCache cacheManager) throws IOException {
     LOG.info("Initializing cache loader: " + this.getClass().getName());
     DNConf dnConf = cacheManager.getDnConf();
     PmemVolumeManager.init(dnConf.getPmemVolumes());
     pmemVolumeManager = PmemVolumeManager.getInstance();
+    // The configuration for max locked memory is shaded.
+    LOG.info("Persistent memory is used for caching data instead of " +
+        "DRAM. Max locked memory is set to zero to disable DRAM cache");
+    return new CacheStats(0L);
   }
 
   /**

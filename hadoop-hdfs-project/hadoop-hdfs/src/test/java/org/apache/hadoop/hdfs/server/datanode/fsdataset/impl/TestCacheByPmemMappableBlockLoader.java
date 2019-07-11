@@ -212,8 +212,6 @@ public class TestCacheByPmemMappableBlockLoader {
         Ints.checkedCast(CACHE_CAPACITY / BLOCK_SIZE);
     BlockReaderTestUtil.enableHdfsCachingTracing();
     Assert.assertEquals(0, CACHE_CAPACITY % BLOCK_SIZE);
-    assertEquals(CACHE_CAPACITY, cacheManager.getPmemCacheCapacity());
-    // Verify cache capacity metric which is reported to NameNode.
     assertEquals(CACHE_CAPACITY, cacheManager.getCacheCapacity());
 
     final Path testFile = new Path("/testFile");
@@ -244,8 +242,6 @@ public class TestCacheByPmemMappableBlockLoader {
     }, 1000, 30000);
 
     // The pmem cache space is expected to have been used up.
-    assertEquals(CACHE_CAPACITY, cacheManager.getPmemCacheUsed());
-    // Verify cache used metric which is reported to NameNode.
     assertEquals(CACHE_CAPACITY, cacheManager.getCacheUsed());
     Map<ExtendedBlockId, Byte> blockKeyToVolume =
         PmemVolumeManager.getInstance().getBlockKeyToVolume();
@@ -318,8 +314,6 @@ public class TestCacheByPmemMappableBlockLoader {
     }, 1000, 30000);
 
     // It is expected that no pmem cache space is used.
-    assertEquals(0, cacheManager.getPmemCacheUsed());
-    // Verify cache used metric.
     assertEquals(0, cacheManager.getCacheUsed());
     // No record should be kept by blockKeyToVolume after testFile is uncached.
     assertEquals(blockKeyToVolume.size(), 0);

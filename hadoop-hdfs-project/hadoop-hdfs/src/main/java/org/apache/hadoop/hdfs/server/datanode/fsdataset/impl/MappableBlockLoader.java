@@ -43,7 +43,7 @@ public abstract class MappableBlockLoader {
   /**
    * Initialize a specific MappableBlockLoader.
    */
-  abstract void initialize(FsDatasetCache cacheManager) throws IOException;
+  abstract CacheStats initialize(FsDatasetCache cacheManager) throws IOException;
 
   /**
    * Load the block.

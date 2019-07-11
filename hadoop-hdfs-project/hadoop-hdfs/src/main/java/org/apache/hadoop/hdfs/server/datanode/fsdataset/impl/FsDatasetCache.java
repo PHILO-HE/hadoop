@@ -137,7 +137,7 @@ public class FsDatasetCache {
    */
   private final MappableBlockLoader cacheLoader;
 
-  private final MemoryCacheStats memCacheStats;
+  private final CacheStats memCacheStats;
 
   /**
    * Number of cache commands that could not be completed successfully
@@ -182,16 +182,7 @@ public class FsDatasetCache {
     this.cacheLoader = MappableBlockLoaderFactory.createCacheLoader(
         this.getDnConf());
     // Both lazy writer and read cache are sharing this statistics.
-    if (isPmemCacheEnabled()) {
-      // The configuration for max locked memory is shaded.
-      LOG.info("Persistent memory is used for caching data instead of " +
-          "DRAM. Max locked memory is set to zero to disable DRAM cache");
-      this.memCacheStats = new MemoryCacheStats(0L);
-    } else {
-      this.memCacheStats = new MemoryCacheStats(
-          dataset.datanode.getDnConf().getMaxLockedMemory());
-    }
-    cacheLoader.initialize(this);
+    this.memCacheStats = cacheLoader.initialize(this);
   }
 
   /**
@@ -205,7 +196,7 @@ public class FsDatasetCache {
     return this.dataset.datanode.getDnConf();
   }
 
-  MemoryCacheStats getMemCacheStats() {
+  CacheStats getMemCacheStats() {
     return memCacheStats;
   }
 
@@ -569,17 +560,6 @@ public class FsDatasetCache {
   }
 
   /**
-   * Get the approximate amount of persistent memory cache space used.
-   * TODO: advertise this metric to NameNode by FSDatasetMBean
-   */
-  public long getPmemCacheUsed() {
-    if (isPmemCacheEnabled()) {
-      return cacheLoader.getCacheUsed();
-    }
-    return 0;
-  }
-
-  /**
    * Get the approximate amount of cache space used either on DRAM or
    * on persistent memory.
    * @return
@@ -593,17 +573,6 @@ public class FsDatasetCache {
    */
   public long getMemCacheCapacity() {
     return memCacheStats.getCacheCapacity();
-  }
-
-  /**
-   * Get cache capacity of persistent memory.
-   * TODO: advertise this metric to NameNode by FSDatasetMBean
-   */
-  public long getPmemCacheCapacity() {
-    if (isPmemCacheEnabled()) {
-      return cacheLoader.getCacheCapacity();
-    }
-    return 0;
   }
 
   /**
