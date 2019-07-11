@@ -3164,7 +3164,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     public void evictBlocks(long bytesNeeded) throws IOException {
       int iterations = 0;
 
+      // If persistent memory cache is enabled, DRAM cache will be disabled.
+      // Thus, DRAM cache capacity can be zero.
       final long cacheCapacity = cacheManager.getMemCacheCapacity();
+      if (cacheCapacity == 0L) {
+        throw new IOException("DRAM cache may be disabled. The cache capacity is 0.");
+      }
 
       while (iterations++ < MAX_BLOCK_EVICTIONS_PER_ITERATION &&
              (cacheCapacity - cacheManager.getMemCacheUsed()) < bytesNeeded) {

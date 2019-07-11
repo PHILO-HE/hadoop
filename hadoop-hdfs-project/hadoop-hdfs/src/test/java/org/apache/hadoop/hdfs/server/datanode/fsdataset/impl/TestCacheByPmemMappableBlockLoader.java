@@ -213,6 +213,8 @@ public class TestCacheByPmemMappableBlockLoader {
     BlockReaderTestUtil.enableHdfsCachingTracing();
     Assert.assertEquals(0, CACHE_CAPACITY % BLOCK_SIZE);
     assertEquals(CACHE_CAPACITY, cacheManager.getCacheCapacity());
+    // DRAM cache is expected to be disabled.
+    assertEquals(0L, cacheManager.getMemCacheCapacity());
 
     final Path testFile = new Path("/testFile");
     final long testFileLen = maxCacheBlocksNum * BLOCK_SIZE;
@@ -243,6 +245,8 @@ public class TestCacheByPmemMappableBlockLoader {
 
     // The pmem cache space is expected to have been used up.
     assertEquals(CACHE_CAPACITY, cacheManager.getCacheUsed());
+    // There should be no cache used on DRAM.
+    assertEquals(0L, cacheManager.getMemCacheUsed());
     Map<ExtendedBlockId, Byte> blockKeyToVolume =
         PmemVolumeManager.getInstance().getBlockKeyToVolume();
     // All block keys should be kept in blockKeyToVolume
