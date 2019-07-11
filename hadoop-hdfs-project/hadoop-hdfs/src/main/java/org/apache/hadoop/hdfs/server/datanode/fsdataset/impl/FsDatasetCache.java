@@ -181,16 +181,17 @@ public class FsDatasetCache {
 
     this.cacheLoader = MappableBlockLoaderFactory.createCacheLoader(
         this.getDnConf());
-    cacheLoader.initialize(this);
-
     // Both lazy writer and read cache are sharing this statistics.
     if (isPmemCacheEnabled()) {
       // The configuration for max locked memory is shaded.
+      LOG.info("Persistent memory is used for caching data instead of " +
+          "DRAM. Max locked memory is set to zero to disable DRAM cache");
       this.memCacheStats = new MemoryCacheStats(0L);
     } else {
       this.memCacheStats = new MemoryCacheStats(
           dataset.datanode.getDnConf().getMaxLockedMemory());
     }
+    cacheLoader.initialize(this);
   }
 
   /**
