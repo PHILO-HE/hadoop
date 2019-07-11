@@ -23,7 +23,6 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -182,7 +181,7 @@ public class FsDatasetCache {
     this.cacheLoader = MappableBlockLoaderFactory.createCacheLoader(
         this.getDnConf());
     // Both lazy writer and read cache are sharing this statistics.
-    this.memCacheStats = cacheLoader.initialize(this);
+    this.memCacheStats = cacheLoader.initialize(this.getDnConf());
   }
 
   /**
@@ -194,10 +193,6 @@ public class FsDatasetCache {
 
   DNConf getDnConf() {
     return this.dataset.datanode.getDnConf();
-  }
-
-  CacheStats getMemCacheStats() {
-    return memCacheStats;
   }
 
   /**

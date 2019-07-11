@@ -22,6 +22,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,11 +43,9 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   private CacheStats memCacheStats;
 
   @Override
-  CacheStats initialize(FsDatasetCache cacheManager) throws IOException {
+  CacheStats initialize(DNConf dnConf) throws IOException {
     LOG.info("Initializing cache loader: MemoryMappableBlockLoader.");
-    this.memCacheStats = cacheManager.getMemCacheStats();
-    this.memCacheStats = new CacheStats(
-        cacheManager.getDnConf().getMaxLockedMemory());
+    this.memCacheStats = new CacheStats(dnConf.getMaxLockedMemory());
     return memCacheStats;
   }
 
