@@ -202,7 +202,15 @@ Configuration
 
 In order to lock block files into memory, the DataNode relies on native JNI code found in `libhadoop.so` or `hadoop.dll` on Windows. Be sure to [enable JNI](../hadoop-common/NativeLibraries.html) if you are using HDFS centralized cache management.
 
-Currently, there are two implementations for persistent memory cache. One depends on PMDK libs and the other doesn't. PMDK can bring user performance gain for cache write and cache read. To enable PMDK based implementation, please refer to `BUILDING.txt` to build hadoop with PMDK support.
+Currently, there are two implementations for persistent memory cache. The default one is pure Java based implementation and the other is native implementation which leverages PMDK library to improve the performance of cache write and cache read.
+
+To enable PMDK based implementation, please follow the below steps.
+
+1. Install PMDK library. Please refer to the official site http://pmem.io/ for detailed information.
+
+2. Build Hadoop with PMDK support. Please refer to "PMDK library build options" section in `BUILDING.txt` in the source code.
+
+To verify that PMDK is correctly detected by Hadoop, run the `hadoop checknative` command.
 
 ### Configuration Properties
 
@@ -218,7 +226,7 @@ Be sure to configure one of the following properties for DRAM cache or persisten
 
 *   dfs.datanode.cache.pmem.dirs
 
-    This property specifies the cache volume of persistent memory. For multiply volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. And there is no need to configure `dfs.datanode.max.locked.memory`.
+    This property specifies the cache volume of persistent memory. For multiple volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. And there is no need to configure `dfs.datanode.max.locked.memory`.
 
 #### Optional
 
