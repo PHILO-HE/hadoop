@@ -184,13 +184,6 @@ public class FsDatasetCache {
     this.memCacheStats = cacheLoader.initialize(this.getDnConf());
   }
 
-  /**
-   * Check if pmem cache is enabled.
-   */
-  private boolean isPmemCacheEnabled() {
-    return !cacheLoader.isTransientCache();
-  }
-
   DNConf getDnConf() {
     return this.dataset.datanode.getDnConf();
   }
