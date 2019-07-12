@@ -3168,7 +3168,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       // Thus, DRAM cache capacity can be zero.
       final long cacheCapacity = cacheManager.getMemCacheCapacity();
       if (cacheCapacity == 0L) {
-        throw new IOException("DRAM cache may be disabled. The cache capacity is 0.");
+        throw new IOException("DRAM cache may be disabled. " +
+            "The cache capacity is 0.");
       }
 
       while (iterations++ < MAX_BLOCK_EVICTIONS_PER_ITERATION &&
