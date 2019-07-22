@@ -177,6 +177,10 @@ public class NativeIO {
       LOG.error("The state code: " + stateCode + " is unrecognized!");
     }
 
+    public static String getPmdkSupportStateMessage() {
+      return pmdkSupportState.getMessage();
+    }
+
     public static boolean isPmdkAvailable() {
       LOG.info(pmdkSupportState.getMessage());
       return pmdkSupportState == SupportState.SUPPORTED;
