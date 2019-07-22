@@ -1508,6 +1508,10 @@ JNIEnv *env, jclass thisClass, jstring filePath, jlong fileLength) {
       return NULL;
     }
 
+    if (pmdkLoader == NULL) {
+      THROW(env, "java/io/IOException", "pmdkLoader should not be null!");
+    }
+
     pmemaddr = pmdkLoader->pmem_map_file(path, fileLength, PMEM_FILE_CREATE|PMEM_FILE_EXCL,
         0666, &mapped_len, &is_pmem);
 
