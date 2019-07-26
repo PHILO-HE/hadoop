@@ -360,11 +360,6 @@ Java_org_apache_hadoop_io_nativeio_NativeIO_initNative(
 #ifdef UNIX
   errno_enum_init(env);
   PASS_EXCEPTIONS_GOTO(env, error);
-#ifdef HADOOP_PMDK_LIBRARY
-  if (loadPmdkLib(env)) {
-    pmem_region_init(env, clazz);
-  }
-#endif
 #endif
   return;
 error:
@@ -1463,6 +1458,62 @@ cleanup:
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+//JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_loadPmdkLib(
+//JNIEnv *env, jclass thisClass) {
+//  #if (defined UNIX) && (defined HADOOP_PMDK_LIBRARY)
+//      if (loadPmdkLib(env)) {
+//        pmem_region_init(env, clazz);
+//      }
+//  #else
+//    jclass clazz = (*env)->FindClass(env, NATIVE_IO_POSIX_CLASS);
+//    if (clazz == NULL) {
+//      THROW(env, "java/io/IOException", "Failed to get NativeIO$POSIX class");
+//    }
+//    jmethodID mid = (*env)->GetStaticMethodID(env, clazz, "setPmdkSupportState", "(I)V");
+//    if (mid == 0) {
+//      THROW(env, "java/io/IOException", "Failed to get setPmdkSupportState method");
+//    }
+//    (*env)->CallStaticVoidMethod(env, clazz, mid, -1);
+//  #endif
+//  }
+
+  JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_loadPmdkLib(
+  JNIEnv *env, jclass thisClass) {
+    #if (defined UNIX) && (defined HADOOP_PMDK_LIBRARY)
+          char errMsg[1024];
+          jclass clazz = (*env)->FindClass(env, NATIVE_IO_POSIX_CLASS);
+          if (clazz == NULL) {
+//            return 0; // exception has been raised
+          }
+          load_pmdk_lib(errMsg, sizeof(errMsg));
+          jmethodID mid = (*env)->GetStaticMethodID(env, clazz, "setPmdkSupportState", "(I)V");
+          if (mid == 0) {
+//            return 0;
+          }
+          if (strlen(errMsg) > 0) {
+            (*env)->CallStaticVoidMethod(env, clazz, mid, 1);
+//            return 0;
+          }
+          (*env)->CallStaticVoidMethod(env, clazz, mid, 0);
+          pmem_region_init(env, clazz);
+//          return 1;
+    #else
+      THROW(env, "java/lang/UnsupportedOperationException",
+          "The function pmemDrain is not supported.");
+    #endif
+    }
+
+//JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_loadPmdkLib(
+//JNIEnv *env, jclass thisClass) {
+//  #if (defined UNIX) && (defined HADOOP_PMDK_LIBRARY)
+////    pmdkLoader->pmem_drain();
+//  #else
+//    THROW(env, "java/lang/UnsupportedOperationException",
+//        "The function pmemDrain is not supported.");
+//  #endif
+//  }
+
 
 /*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO_POSIX

@@ -186,6 +186,8 @@ public class NativeIO {
       return pmdkSupportState == SupportState.SUPPORTED;
     }
 
+//    public static native String getLibraryName();
+
     /**
      * Denote memory region for a file mapped.
      */
@@ -217,6 +219,18 @@ public class NativeIO {
      * JNI wrapper of persist memory operations.
      */
     public static class Pmem {
+
+      static {
+        if (NativeCodeLoader.isNativeCodeLoaded()) {
+          try {
+            // Initialize the PMDK native library
+            NativeIO.POSIX.loadPmdkLib();
+          } catch (Throwable t) {
+            LOG.warn("Error loading PMDK native libraries: " + t);
+          }
+        }
+      }
+
       // check whether the address is a Pmem address or DIMM address
       public static boolean isPmem(long address, long length) {
         return NativeIO.POSIX.isPmemCheck(address, length);
@@ -248,6 +262,7 @@ public class NativeIO {
       }
     }
 
+    private static native void loadPmdkLib();
     private static native boolean isPmemCheck(long address, long length);
     private static native PmemMappedRegion pmemCreateMapFile(String path,
         long length);
