@@ -20,25 +20,32 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-
-import java.io.Closeable;
+import org.apache.hadoop.hdfs.server.datanode.DNConf;
+import org.apache.hadoop.io.nativeio.NativeIO;
 
 /**
- * Represents an HDFS block that is mapped by the DataNode.
+ * Creates MappableBlockLoader.
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public interface MappableBlock extends Closeable {
+public final class MappableBlockLoaderFactory {
+
+  private MappableBlockLoaderFactory() {
+    // Prevent instantiation
+  }
 
   /**
-   * Get the number of bytes that have been cached.
-   * @return the number of bytes that have been cached.
+   * Create a specific cache loader according to the configuration.
+   * If persistent memory volume is not configured, return a cache loader
+   * for DRAM cache. Otherwise, return a cache loader for pmem cache.
    */
-  long getLength();
-
-  /**
-   * Get cache address if applicable.
-   * Return -1 if not applicable.
-   */
-  long getAddress();
+  public static MappableBlockLoader createCacheLoader(DNConf conf) {
+    if (conf.getPmemVolumes() == null || conf.getPmemVolumes().length == 0) {
+      return new MemoryMappableBlockLoader();
+    }
+    if (NativeIO.isAvailable() && NativeIO.POSIX.isPmdkAvailable()) {
+      return new NativePmemMappableBlockLoader();
+    }
+    return new PmemMappableBlockLoader();
+  }
 }
