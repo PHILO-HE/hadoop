@@ -218,6 +218,8 @@ public final class PmemVolumeManager {
       try {
         File pmemDir = new File(volumes[n]);
         File realPmemDir = verifyIfValidPmemVolume(pmemDir);
+        // Clean up the cache left before, if any.
+        cleanup(realPmemDir);
         this.pmemVolumes.add(realPmemDir.getPath());
         long maxBytes;
         if (maxBytesPerPmem == -1) {
@@ -242,17 +244,14 @@ public final class PmemVolumeManager {
       throw new IOException(
           "At least one valid persistent memory volume is required!");
     }
-    cleanup();
   }
 
-  void cleanup() {
+  void cleanup(File realPmemDir) {
     // Remove all files under the volume.
-    for (String pmemDir: pmemVolumes) {
-      try {
-        FileUtils.cleanDirectory(new File(pmemDir));
-      } catch (IOException e) {
-        LOG.error("Failed to clean up " + pmemDir, e);
-      }
+    try {
+      FileUtils.cleanDirectory(realPmemDir);
+    } catch (IOException e) {
+      LOG.error("Failed to clean up " + realPmemDir.getPath(), e);
     }
   }
 
