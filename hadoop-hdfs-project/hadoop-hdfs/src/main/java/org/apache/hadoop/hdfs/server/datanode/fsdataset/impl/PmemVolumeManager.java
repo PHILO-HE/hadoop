@@ -255,6 +255,12 @@ public final class PmemVolumeManager {
     }
   }
 
+  void cleanup() {
+    for (String pmemVolume : pmemVolumes) {
+      cleanup(new File(pmemVolume));
+    }
+  }
+
   @VisibleForTesting
   static File verifyIfValidPmemVolume(File pmemDir)
       throws IOException {
