@@ -853,6 +853,42 @@ message HAServiceStateResponseProto {
   required hadoop.common.HAServiceStateProto state = 1;
 }
 
+message AddMountRequestProto {
+  required string remotePath = 1;
+  required string mountPath = 2;
+  repeated ProvidedMountConfigProto remoteConfig = 3;
+}
+
+message AddMountResponseProto {
+  required bool mountStatus = 1;
+}
+
+message ListMountRequestProto {}
+
+message ListMountResponseProto {
+  repeated MountInfoProto mountInfos = 1;
+}
+
+enum MountStatusProto {
+  CREATING = 1;
+  CREATED = 2;
+  // TODO add others as required.
+}
+
+message MountInfoProto {
+  required string remotePath = 1;
+  required string mountPath = 2;
+  required MountStatusProto mountStatus = 3;
+}
+
+message RemoveMountRequestProto {
+  required string mountPath = 1;
+}
+
+message RemoveMountResponseProto {
+  required bool mountStatus = 1;
+}
+
 service ClientNamenodeProtocol {
   rpc getBlockLocations(GetBlockLocationsRequestProto)
       returns(GetBlockLocationsResponseProto);
@@ -1045,4 +1081,10 @@ service ClientNamenodeProtocol {
       returns(SatisfyStoragePolicyResponseProto);
   rpc getHAServiceState(HAServiceStateRequestProto)
       returns(HAServiceStateResponseProto);
+  rpc addMount(AddMountRequestProto)
+      returns(AddMountResponseProto);
+  rpc listMounts(ListMountRequestProto)
+      returns(ListMountResponseProto);
+  rpc removeMount(RemoveMountRequestProto)
+      returns(RemoveMountResponseProto);
 }

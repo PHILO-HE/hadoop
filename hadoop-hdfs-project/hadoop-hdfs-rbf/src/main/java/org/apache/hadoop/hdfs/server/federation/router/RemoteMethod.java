@@ -78,8 +78,8 @@ public class RemoteMethod {
    *          <ul>
    *          <li>Static parameters that are immutable across locations.
    *          <li>Dynamic parameters that are determined for each location by a
-   *          RemoteParam object. To specify a dynamic parameter, pass an
-   *          instance of RemoteParam in place of the parameter value.
+   *          RemotePathParam object. To specify a dynamic parameter, pass an
+   *          instance of RemotePathParam in place of the parameter value.
    *          </ul>
    * @throws IOException If the types and parameter lists are not valid.
    */
@@ -100,8 +100,8 @@ public class RemoteMethod {
    *          <ul>
    *          <li>Static parameters that are immutable across locations.
    *          <li>Dynamic parameters that are determined for each location by a
-   *          RemoteParam object. To specify a dynamic parameter, pass an
-   *          instance of RemoteParam in place of the parameter value.
+   *          RemotePathParam object. To specify a dynamic parameter, pass an
+   *          instance of RemotePathParam in place of the parameter value.
    *          </ul>
    * @throws IOException If the types and parameter lists are not valid.
    */
@@ -186,7 +186,7 @@ public class RemoteMethod {
    * <ul>
    * <li>Static parameters that are immutable across locations.
    * <li>Dynamic parameters that are determined for each location by a
-   * RemoteParam object.
+   * RemotePathParam object.
    * </ul>
    *
    * @param context The context identifying the location.

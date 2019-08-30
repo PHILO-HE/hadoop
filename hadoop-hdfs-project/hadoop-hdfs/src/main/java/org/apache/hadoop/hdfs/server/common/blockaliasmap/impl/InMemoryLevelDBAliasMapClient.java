@@ -51,8 +51,8 @@ public class InMemoryLevelDBAliasMapClient extends BlockAliasMap<FileRegion>
 
   private static final Logger LOG =
       LoggerFactory.getLogger(InMemoryLevelDBAliasMapClient.class);
-  private Configuration conf;
-  private Collection<InMemoryAliasMapProtocol> aliasMaps;
+  protected Configuration conf;
+  protected Collection<InMemoryAliasMapProtocol> aliasMaps;
 
   @Override
   public void close() {
@@ -72,9 +72,8 @@ public class InMemoryLevelDBAliasMapClient extends BlockAliasMap<FileRegion>
     }
 
     @Override
-    public Optional<FileRegion> resolve(Block block) throws IOException {
-      Optional<ProvidedStorageLocation> read = aliasMap.read(block);
-      return read.map(psl -> new FileRegion(block, psl));
+    public Optional<FileRegion> resolve(long blockId) throws IOException {
+      return aliasMap.read(blockId);
     }
 
     @Override
@@ -144,6 +143,11 @@ public class InMemoryLevelDBAliasMapClient extends BlockAliasMap<FileRegion>
     }
 
     @Override
+    public void remove(Block block) throws IOException {
+      aliasMap.remove(block);
+    }
+
+    @Override
     public void close() throws IOException {
     }
   }
@@ -167,7 +171,7 @@ public class InMemoryLevelDBAliasMapClient extends BlockAliasMap<FileRegion>
           return aliasMap;
         }
       } catch (IOException e) {
-        LOG.error("Exception in retrieving block pool id {}", e);
+        LOG.error("Exception in retrieving block pool id", e);
       }
     }
     throw new IOException(

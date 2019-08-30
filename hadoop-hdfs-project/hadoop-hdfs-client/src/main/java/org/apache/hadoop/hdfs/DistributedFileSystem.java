@@ -3402,4 +3402,28 @@ public class DistributedFileSystem extends FileSystem
   public HdfsDataOutputStreamBuilder appendFile(Path path) {
     return new HdfsDataOutputStreamBuilder(this, path).append();
   }
+
+  /**
+   * Add a PROVIDED mount point to the FSImage.
+   * @param remote Remote location.
+   * @param mount Path in HDFS to mount the path in.
+   * @param remoteConfig config needed to connect to remote fs
+   * @return true if the mount is successful.
+   * @throws IOException If there is an error adding the mount point.
+   */
+  public boolean addMount(String remote, String mount,
+      Map<String, String> remoteConfig)
+      throws IOException {
+    return dfs.addMount(remote, mount, remoteConfig);
+  }
+
+  /**
+   * Unmount (delete) a PROVIDED mount point.
+   * @param mountPath mount path to remove
+   * @return true if the removeMount is unsuccessful
+   * @throws IOException
+   */
+  public boolean removeMount(String mountPath) throws IOException {
+    return dfs.removeMount(mountPath);
+  }
 }

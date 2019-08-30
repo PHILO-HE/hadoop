@@ -30,6 +30,10 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IO_FILE_BUFFER_SIZE_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCK_SIZE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MOUNT_INODES_MAX;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MOUNT_INODES_MAX_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MOUNT_NUM_MAX;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_MOUNT_NUM_MAX_DEFAULT;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_BYTES_PER_CHECKSUM_DEFAULT;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_BYTES_PER_CHECKSUM_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CHECKSUM_TYPE_DEFAULT;
@@ -90,6 +94,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SNAPSHOT_DIFF_LISTING_LIMIT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_SNAPSHOT_DIFF_LISTING_LIMIT_DEFAULT;
 
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_STORAGE_POLICY_ENABLED_KEY;
 import static org.apache.hadoop.hdfs.server.namenode.FSDirStatAndListingOp.*;
@@ -105,6 +111,7 @@ import org.apache.hadoop.hdfs.protocol.ZoneReencryptionStatus;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReportListing;
 import org.apache.hadoop.hdfs.protocol.SnapshotDiffReport;
 import org.apache.hadoop.hdfs.server.common.ECTopologyVerifier;
+import org.apache.hadoop.hdfs.server.common.ProvidedVolumeInfo;
 import org.apache.hadoop.hdfs.server.namenode.metrics.ReplicatedBlocksMBean;
 import org.apache.hadoop.hdfs.server.protocol.SlowDiskReports;
 import org.apache.hadoop.util.Time;
@@ -141,6 +148,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -165,9 +173,9 @@ import org.apache.hadoop.crypto.key.KeyProviderCryptoExtension;
 import org.apache.hadoop.hdfs.AddBlockFlag;
 import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedListEntries;
 import org.apache.hadoop.fs.CacheFlag;
-import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
+import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FileEncryptionInfo;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -236,6 +244,7 @@ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStatistics;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.RollingUpgradeStartupOption;
@@ -259,6 +268,7 @@ import org.apache.hadoop.hdfs.server.namenode.ha.StandbyCheckpointer;
 import org.apache.hadoop.hdfs.server.namenode.metrics.ECBlockGroupsMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.FSNamesystemMBean;
 import org.apache.hadoop.hdfs.server.namenode.metrics.NameNodeMetrics;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.TreePath;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.DirectorySnapshottableFeature;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.Snapshot;
 import org.apache.hadoop.hdfs.server.namenode.snapshot.SnapshotManager;
@@ -599,6 +609,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   private Object metaSaveLock = new Object();
 
   /**
+   * Used to keep track of the mount points.
+   */
+  private MountManager mountManager;
+
+  /**
    * Notify that loading of this FSDirectory is complete, and
    * it is imageLoaded for use
    */
@@ -930,6 +945,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       Preconditions.checkArgument(blockDeletionIncrement > 0,
           DFSConfigKeys.DFS_NAMENODE_BLOCK_DELETION_INCREMENT_KEY +
               " must be a positive integer.");
+
+      this.mountManager = MountManager.createInstance(conf, this, blockManager);
     } catch(IOException e) {
       LOG.error(getClass().getSimpleName() + " initialization failed.", e);
       close();
@@ -1269,6 +1286,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         getFSImage().editLog.openForWrite(getEffectiveLayoutVersion());
       }
 
+      // update the mount status' after a failover.
+      mountManager.startService();
       // Initialize the quota.
       dir.updateCountForQuota();
       // Enable quota checks.
@@ -1304,6 +1323,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
       cacheManager.startMonitorThread();
       blockManager.getDatanodeManager().setShouldSendCachingCommands(true);
+
+      blockManager.getDatanodeManager().setShouldSendProvidedVolumeCommands(
+          blockManager.getProvidedStorageMap().isProvidedEnabled());
+
       if (provider != null) {
         edekCacheLoader = Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setDaemon(true)
@@ -1379,9 +1402,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         cacheManager.stopMonitorThread();
         cacheManager.clearDirectiveStats();
       }
+
+      if (mountManager != null) {
+        mountManager.stopServices();
+      }
+
       if (blockManager != null) {
         blockManager.getDatanodeManager().clearPendingCachingCommands();
         blockManager.getDatanodeManager().setShouldSendCachingCommands(false);
+        blockManager.getDatanodeManager()
+            .setShouldSendProvidedVolumeCommands(false);
         // Don't want to keep replication queues when not in Active.
         blockManager.clearQueues();
         blockManager.setInitializedReplQueues(false);
@@ -1450,6 +1480,37 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
     if (dir != null && getFSImage() != null && getFSImage().editLog != null) {
       getFSImage().editLog.close();
+    }
+  }
+
+  /**
+   * Functional interface used to check if an operation can be performed on a
+   * path.
+   */
+  @FunctionalInterface
+  interface CheckPathFunction {
+
+    /**
+     * check if a particular operation is allowed on the path.
+     *
+     * @param path
+     * @throws AccessControlException
+     */
+    void check(String path) throws AccessControlException;
+  }
+
+  /**
+   * Check if the path has any overlap (path is a prefix of mount or vice versa)
+   * with existing mount points.
+   *
+   * @param path path to check
+   */
+  private void checkOverlapWithMount(String path)
+      throws AccessControlException {
+    Path mount = mountManager.getOverlappingMount(new Path(path));
+    if (mount != null) {
+      throw new AccessControlException(
+          "No modifications allowed within mount: " + mount);
     }
   }
 
@@ -2451,8 +2512,20 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       boolean createParent, short replication, long blockSize,
       CryptoProtocolVersion[] supportedVersions, String ecPolicyName,
       String storagePolicy, boolean logRetryCache) throws IOException {
+    return startFileChecked(src, permissions, holder, clientMachine, flag,
+        createParent, replication, blockSize, supportedVersions, ecPolicyName,
+        storagePolicy, logRetryCache, path -> checkOverlapWithMount(path));
+  }
 
+  HdfsFileStatus startFileChecked(String src,
+      PermissionStatus permissions,
+      String holder, String clientMachine, EnumSet<CreateFlag> flag,
+      boolean createParent, short replication, long blockSize,
+      CryptoProtocolVersion[] supportedVersions, String ecPolicyName,
+      String storagePolicy, boolean logRetryCache, CheckPathFunction checkPath)
+      throws IOException {
     HdfsFileStatus status;
+    checkPath.check(src);
     try {
       status = startFileInt(src, permissions, holder, clientMachine, flag,
           createParent, replication, blockSize, supportedVersions, ecPolicyName,
@@ -3035,13 +3108,24 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   @Deprecated
   boolean renameTo(String src, String dst, boolean logRetryCache)
       throws IOException {
+    return renameTo(src, dst, logRetryCache,
+        path -> checkOverlapWithMount(path));
+  }
+
+  @Deprecated
+  private boolean renameTo(String src, String dst, boolean logRetryCache,
+      CheckPathFunction checkPath) throws IOException {
     final String operationName = "rename";
     FSDirRenameOp.RenameResult ret = null;
     checkOperation(OperationCategory.WRITE);
+    checkPath.check(src);
+    checkPath.check(dst);
     final FSPermissionChecker pc = getPermissionChecker();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
+      checkPath.check(src);
+      checkPath.check(dst);
       checkNameNodeSafeMode("Cannot rename " + src);
       ret = FSDirRenameOp.renameToInt(dir, pc, src, dst, logRetryCache);
     } catch (AccessControlException e)  {
@@ -3061,13 +3145,24 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   void renameTo(final String src, final String dst,
                 boolean logRetryCache, Options.Rename... options)
       throws IOException {
+    renameToChecked(src, dst, logRetryCache,
+        path -> checkOverlapWithMount(path), options);
+  }
+
+  private void renameToChecked(final String src, final String dst,
+      boolean logRetryCache, CheckPathFunction checkPath,
+      Options.Rename... options) throws IOException {
     final String operationName = "rename";
     FSDirRenameOp.RenameResult res = null;
     checkOperation(OperationCategory.WRITE);
+    checkPath.check(src);
+    checkPath.check(dst);
     final FSPermissionChecker pc = getPermissionChecker();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
+      checkPath.check(src);
+      checkPath.check(dst);
       checkNameNodeSafeMode("Cannot rename " + src);
       res = FSDirRenameOp.renameToInt(dir, pc, src, dst, logRetryCache,
           options);
@@ -3099,14 +3194,27 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   boolean delete(String src, boolean recursive, boolean logRetryCache)
       throws IOException {
+    return deleteChecked(src, recursive, logRetryCache,
+        path -> checkOverlapWithMount(path));
+  }
+
+  /**
+   * Same as {@link FSNamesystem#delete(String, boolean, boolean)} except
+   * that it doesn't check whether the {@code src} is within a mount or not.
+   */
+  boolean deleteChecked(String src, boolean recursive,
+      boolean logRetryCache, CheckPathFunction checkPath)
+      throws IOException {
     final String operationName = "delete";
     BlocksMapUpdateInfo toRemovedBlocks = null;
     checkOperation(OperationCategory.WRITE);
+    checkPath.check(src);
     final FSPermissionChecker pc = getPermissionChecker();
     writeLock();
     boolean ret = false;
     try {
       checkOperation(OperationCategory.WRITE);
+      checkPath.check(src);
       checkNameNodeSafeMode("Cannot delete " + src);
       toRemovedBlocks = FSDirDeleteOp.delete(
           this, pc, src, recursive, logRetryCache);
@@ -3119,6 +3227,12 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
     getEditLog().logSync();
     if (toRemovedBlocks != null) {
+      // if this path is a mount point, delete all blocks from the alias map.
+      Path mount = mountManager.getMountPath(new Path(src));
+      if (mount != null) {
+        LOG.info("Deleting blocks from aliasmap for mount " + mount);
+        mountManager.deleteBlocks(toRemovedBlocks.getToDeleteList());
+      }
       removeBlocks(toRemovedBlocks); // Incremental deletion of blocks
     }
     logAuditEvent(true, operationName, src);
@@ -3248,13 +3362,22 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   boolean mkdirs(String src, PermissionStatus permissions,
       boolean createParent) throws IOException {
+    return mkdirsChecked(src, permissions, createParent,
+        path -> checkOverlapWithMount(path));
+  }
+
+  boolean mkdirsChecked(String src, PermissionStatus permissions,
+      boolean createParent, CheckPathFunction checkPath)
+      throws IOException {
     final String operationName = "mkdirs";
     FileStatus auditStat = null;
     checkOperation(OperationCategory.WRITE);
+    checkPath.check(src);
     final FSPermissionChecker pc = getPermissionChecker();
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
+      checkPath.check(src);
       checkNameNodeSafeMode("Cannot create directory " + src);
       auditStat = FSDirMkdirOp.mkdirs(this, pc, src, permissions,
           createParent);
@@ -3937,6 +4060,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     } finally {
       writeUnlock("registerDatanode");
     }
+
+    // send existing provided volume information to the new datatnode
+    Map<Path, ProvidedVolumeInfo> volumes = mountManager.getFinishedMounts();
+    if (!volumes.isEmpty()) {
+      DatanodeDescriptor dn =
+          blockManager.getDatanodeManager().getDatanode(nodeReg);
+      for (ProvidedVolumeInfo vol : volumes.values()) {
+        dn.addProvidedVolume(vol);
+      }
+    }
   }
   
   /**
@@ -4380,6 +4513,20 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       "Total space used in PROVIDED storage in bytes" })
   public long getProvidedCapacityTotal() {
     return datanodeStatistics.getProvidedCapacity();
+  }
+
+  @Override // FSNamesystemMBean
+  @Metric({ "ProvidedCacheUsed",
+      "Total space used to cache PROVIDED blocks in bytes" })
+  public long getProvidedCacheUsed() {
+    return mountManager.getMountCacheManager().getCacheUsedForProvided();
+  }
+
+  @Override // FSNamesystemMBean
+  @Metric({ "ProvidedCacheCapacity",
+      "Total space used to cache PROVIDED blocks in bytes" })
+  public long getProvidedCacheCapacity() {
+    return mountManager.getMountCacheManager().getCacheCapacityForProvided();
   }
 
   @Metric({"CapacityRemainingGB", "Remaining capacity in GB"})
@@ -5981,6 +6128,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   @Override // NameNodeMXBean
+  public long getProvidedCacheCapacityTotal() {
+    return this.getProvidedCacheCapacity();
+  }
+
+  @Override // NameNodeMXBean
+  public long getProvidedCacheUsedTotal() {
+    return this.getProvidedCacheUsed();
+  }
+
+  @Override // NameNodeMXBean
   public String getSafemode() {
     if (!this.isInSafeMode())
       return "";
@@ -6508,6 +6665,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   @VisibleForTesting
   public void setNNResourceChecker(NameNodeResourceChecker nnResourceChecker) {
     this.nnResourceChecker = nnResourceChecker;
+  }
+
+  @VisibleForTesting
+  public void setMountManagerForTests(MountManager manager) {
+    this.mountManager = manager;
   }
 
   public SnapshotManager getSnapshotManager() {
@@ -8226,7 +8388,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   }
 
   String getFailedStorageCommand(String mode) {
-    if(mode.equals("check")) {
+    if (mode.equals("check")) {
       return "checkRestoreFailedStorage";
     } else if (mode.equals("true")) {
       return "enableRestoreFailedStorage";
@@ -8246,6 +8408,273 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         NameNodeLayoutVersion.Feature.ERASURE_CODING,
         getEffectiveLayoutVersion())) {
       throw new UnsupportedActionException(operationName + " not supported.");
+    }
+  }
+
+  /**
+   * Mount an external path.
+   *
+   * @param remotePath remote path.
+   * @param rootOfMount mount point.
+   * @param remoteConfig configurations required to establish remote connection
+   * @param conf Configuration for the NN.
+   * @return true if the mount succeeds.
+   * @throws FileAlreadyExistsException if {@code mountPath} already exists.
+   * @throws StandbyException
+   * @throws IOException on any other error adding the mount point.
+   */
+  boolean addMount(String remotePath, String rootOfMount,
+      Map<String, String> remoteConfig, Configuration conf)
+      throws FileAlreadyExistsException, StandbyException, IOException {
+    int maxMountsAllowed = conf.getInt(DFS_NAMENODE_MOUNT_NUM_MAX,
+        DFS_NAMENODE_MOUNT_NUM_MAX_DEFAULT);
+    checkCreateMountOperation(rootOfMount, maxMountsAllowed);
+    String opName = "addMount";
+    checkOperation(OperationCategory.WRITE);
+    checkNameNodeSafeMode("Cannot mount " + remotePath + " on " + rootOfMount);
+
+    ProvidedVolumeInfo providedVol = new ProvidedVolumeInfo(UUID.randomUUID(),
+        rootOfMount, remotePath, remoteConfig);
+    // temp directory used for the mount.
+    String tempMount;
+    writeLock();
+    Path mountPath = new Path(rootOfMount);
+    try {
+      checkCreateMountOperation(rootOfMount, maxMountsAllowed);
+      checkNameNodeSafeMode(
+          "Cannot mount " + remotePath + " on " + rootOfMount);
+      tempMount = mountManager.startMount(mountPath, providedVol);
+      // logs that the mount operation has started
+      dir.getEditLog().logAddMountOp(rootOfMount, providedVol);
+    } catch (Exception e) {
+      // clean up but do not log to edit log as it wouldn't have been
+      // successfully logged above.
+      mountManager.cleanUpMountOnFailure(mountPath, false);
+      throw e;
+    } finally {
+      writeUnlock(opName);
+    }
+
+    LOG.info("Mounting " + remotePath + " on " + rootOfMount);
+    final List<TreePath> remotePaths;
+    try {
+      // Get remote paths without lock
+      remotePaths = FSMountAttrOp.getRemotePaths(
+          getMergedConfig(conf, remoteConfig), remotePath, tempMount);
+      // ensure that number of Inodes is fewer than max allowed!
+      checkMaxInodesAllowed(conf, remotePaths.size());
+    } catch (Exception e) {
+      // clean up
+      mountManager.cleanUpMountOnFailure(mountPath);
+      throw e;
+    }
+
+    LOG.info("Adding " + remotePaths.size() + " paths from " + remotePath +
+        " into " + rootOfMount);
+    try {
+      FSMountAttrOp.addMount(this, conf, opName, remotePaths);
+
+      // client will use xattr to identify a dir which is also a mount point
+      XAttr userXAttr = new XAttr.Builder()
+          .setNameSpace(XAttr.NameSpace.USER)
+          .setName(MountManager.IS_MOUNT_XATTR_NAME)
+          .setValue("true".getBytes())
+          .build();
+      setXAttr(tempMount, userXAttr, EnumSet.of(XAttrSetFlag.CREATE), false);
+
+      // the mount configuration would be sent to datanodes, as these will be
+      // needed for establishing connection with the remote store
+      for (Entry<String, String> configEntry : remoteConfig.entrySet()) {
+        XAttr trustedXAttr = new XAttr.Builder()
+            .setNameSpace(XAttr.NameSpace.TRUSTED)
+            .setName("mount.config." + configEntry.getKey())
+            .setValue(configEntry.getValue().getBytes())
+            .build();
+        setXAttr(tempMount, trustedXAttr, EnumSet.of(XAttrSetFlag.CREATE),
+            false);
+      }
+    } catch (Exception e) {
+      LOG.error("Exception in creating the mount point " +
+          rootOfMount + ": " + e);
+      mountManager.cleanUpMountOnFailure(mountPath);
+      throw e;
+    }
+
+    // now move the mount to final mount location.
+    writeLock();
+    try {
+      LOG.info("Renaming " + tempMount + " to " + rootOfMount +
+          " to finish mounting path " + remotePath);
+      // move the temp mount location to the final location.
+      // This marks finish of mount operation on success.
+      Path mountParent = mountPath.getParent();
+      // if parent of the mount path doesn't exist, create it.
+      // Directories created here need to be cleaned up if mounting fails
+      // from here on. TODO
+      if (getFileInfo(mountParent.toString(), false, false, false) == null) {
+        if (!mkdirsChecked(mountParent.toString(),
+            new PermissionStatus("", "", FsPermission.getDirDefault()),
+            true, path -> {})) {
+          throw new IOException(
+              "Unable to create parent of mount " + mountPath);
+        }
+      }
+      renameToChecked(tempMount, rootOfMount, false, path -> {},
+          Options.Rename.NONE);
+      mountManager.finishMount(mountPath);
+    } catch (Exception e) {
+      LOG.error("Exception in moving mount point " +
+          rootOfMount + "to final location: " + e);
+      mountManager.cleanUpMountOnFailure(mountPath);
+      throw e;
+    } finally {
+      writeUnlock(opName);
+    }
+
+    getEditLog().logSync();
+    logAuditEvent(true, opName, remotePath, rootOfMount, null);
+
+    // transfer the provided volume information to the datanodes
+    blockManager.getDatanodeManager().addProvidedVolume(providedVol);
+
+    return true;
+  }
+
+  private Configuration getMergedConfig(Configuration conf,
+      Map<String, String> remoteConfig) {
+    Configuration mergedConfig;
+    if (remoteConfig == null || remoteConfig.isEmpty()) {
+      mergedConfig = conf;
+    } else {
+      mergedConfig = new Configuration(conf);
+      remoteConfig.forEach((k, v) -> mergedConfig.set(k, v));
+    }
+    return mergedConfig;
+  }
+
+  /**
+   * Checks if the mount operation is allowed. If any of the following
+   * conditions arise, this method throws an exception:
+   * 1) Provided storage is not configured.
+   * 2) No Datanodes with Provided storage are available.
+   * 3) The path used to mount already exists.
+   * 4) The number of mount points exceed the max allowed mounts.
+   *
+   * @param rootOfMount path to be used as the mount point.
+   * @param maxMountsAllowed max allowed mount point.
+   * @throws IOException
+   */
+  private void checkCreateMountOperation(String rootOfMount,
+      int maxMountsAllowed) throws IOException {
+    ProvidedStorageMap providedStorageMap =
+        getBlockManager().getProvidedStorageMap();
+    if (providedStorageMap.getProvidedStorageInfo() == null) {
+      throw new UnsupportedOperationException("Mount failed! " +
+          "Provided storage has not been configured.");
+    }
+    if (!providedStorageMap.containsActiveProvidedNodes()) {
+      throw new UnsupportedOperationException("Mount failed! " +
+          "Datanodes with PROVIDED storage unavailable.");
+    }
+    if (getFileInfo(rootOfMount, false, false, false) != null) {
+      throw new FileAlreadyExistsException("Mount path " + rootOfMount +
+          " already exists. Merge mounts are not supported");
+    }
+    Path existingMountPoint = mountManager.getMountPath(new Path(rootOfMount));
+    if (existingMountPoint != null) {
+      throw new IOException("Mount point " + rootOfMount +
+          " cannot belong to the existing mount " + existingMountPoint);
+    }
+    if (maxMountsAllowed >= 0 &&
+        mountManager.getNumberOfMounts() + 1 > maxMountsAllowed) {
+      throw new IOException("Mount failed! Number of mounts have reached " +
+          "the maximum allowed of " + maxMountsAllowed);
+    }
+  }
+
+  /**
+   * Checks that the number of inodes for the mount is fewer than
+   * the max allowed.
+   *
+   * @param conf Configuration
+   * @param numRemotePaths remote paths to mount
+   * @throws IOException thrown if the number of inodes exceed the max allowed.
+   */
+  private void checkMaxInodesAllowed(Configuration conf,
+      int numRemotePaths) throws IOException {
+
+    int maxInodesAllowed = conf.getInt(DFS_NAMENODE_MOUNT_INODES_MAX,
+        DFS_NAMENODE_MOUNT_INODES_MAX_DEFAULT);
+    // -1 to account for "/" being counted as one of the remote paths
+    int inodesInMount = numRemotePaths - 1;
+    if (maxInodesAllowed >= 0 && inodesInMount > maxInodesAllowed) {
+      throw new IOException("Mount failed! Number of inodes in remote path (" +
+          inodesInMount + ") exceed the maximum allowed of " +
+          maxInodesAllowed);
+    }
+  }
+
+  private void checkUnMountOperation(String mountPath) throws IOException {
+    if (getFileInfo(mountPath, false, false, false) == null ||
+        !mountManager.mountExists(new Path(mountPath))) {
+      throw new FileNotFoundException("Mount path " + mountPath +
+          " does not exist.");
+    }
+  }
+
+  public MountManager getMountManager() {
+    return mountManager;
+  }
+
+  /**
+   * Remove an existing mount point.
+   *
+   * @param mountPath
+   * @return true if the operation is successful.
+   * @throws IOException
+   */
+  boolean removeMount(String mountPath) throws IOException {
+    checkUnMountOperation(mountPath);
+    String opName = "removeMount";
+    checkOperation(OperationCategory.WRITE);
+    checkNameNodeSafeMode("Cannot remove mount point " + mountPath);
+
+    ProvidedVolumeInfo providedVol;
+    writeLock();
+    try {
+      checkUnMountOperation(mountPath);
+      checkNameNodeSafeMode("Cannot remove mount point " + mountPath);
+      LOG.info("Removing mount point " + mountPath);
+      // delete the mount directory
+      deleteChecked(mountPath, true, false, path->{});
+      providedVol = mountManager.removeMountPoint(new Path(mountPath));
+      dir.getEditLog().logRemoveMountOp(mountPath);
+    } finally {
+      writeUnlock(opName);
+    }
+
+    // transfer the removed volume's information to the DNs
+    blockManager.getDatanodeManager().removeProvidedVolume(providedVol);
+
+    logAuditEvent(true, opName, mountPath);
+    return true;
+  }
+
+  /**
+   * @return List of mounts.
+   * @throws IOException
+   */
+  List<MountInfo> listMounts() throws IOException {
+    String opName = "listMounts";
+    checkOperation(OperationCategory.READ);
+    checkNameNodeSafeMode("Cannot list mounts");
+
+    writeLock();
+    try {
+      checkNameNodeSafeMode("Cannot list mounts");
+      return mountManager.listMounts();
+    } finally {
+      writeUnlock(opName);
     }
   }
 }

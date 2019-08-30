@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CACHE_DROP_BEHIND_READS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CACHE_DROP_BEHIND_WRITES;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CACHE_READAHEAD;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CACHE_READTHROUGH;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CONTEXT;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_CONTEXT_DEFAULT;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_LOCAL_INTERFACES;
@@ -77,6 +78,7 @@ import org.apache.hadoop.fs.FsTracer;
 import org.apache.hadoop.fs.HdfsBlockLocation;
 import org.apache.hadoop.fs.InvalidPathException;
 import org.apache.hadoop.fs.MD5MD5CRC32FileChecksum;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Options.ChecksumCombineMode;
 import org.apache.hadoop.fs.Options.ChecksumOpt;
@@ -379,8 +381,10 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     Boolean writeDropBehind =
         (conf.get(DFS_CLIENT_CACHE_DROP_BEHIND_WRITES) == null) ?
             null : conf.getBoolean(DFS_CLIENT_CACHE_DROP_BEHIND_WRITES, false);
+    Boolean readThrough = (conf.get(DFS_CLIENT_CACHE_READTHROUGH) == null)
+        ? null : conf.getBoolean(DFS_CLIENT_CACHE_READTHROUGH, false);
     this.defaultReadCachingStrategy =
-        new CachingStrategy(readDropBehind, readahead);
+        new CachingStrategy(readDropBehind, readahead, readThrough);
     this.defaultWriteCachingStrategy =
         new CachingStrategy(writeDropBehind, readahead);
     this.clientContext = ClientContext.get(
@@ -1743,6 +1747,57 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     } catch (RemoteException re) {
       throw re.unwrapRemoteException(AccessControlException.class,
           UnresolvedPathException.class);
+    }
+  }
+
+  /**
+   * Add a PROVIDED mount point to the FSImage.
+   *
+   * @param remote Remote location.
+   * @param mount Path in HDFS to mount the path in.
+   * @param config remote config needed to connect to remote fs. For e.g. if
+   *               the desired remote connection requires a user=foo and a
+   *               token=bar configuration, then the config map should
+   *               contain these two pairs.
+   * @return true if the mount is successful.
+   * @throws IOException If there is an error adding the mount point.
+   */
+  public boolean addMount(String remote, String mount,
+      Map<String, String> config) throws IOException {
+    checkOpen();
+    try (TraceScope ignored = newPathTraceScope("getFileLinkInfo", mount)) {
+      return namenode.addMount(remote, mount, config);
+    } catch (RemoteException re) {
+      throw re.unwrapRemoteException(FileNotFoundException.class,
+          AccessControlException.class, UnresolvedPathException.class);
+    }
+  }
+
+  /**
+   * Provide a list of all the mount points in the cluster.
+   * @return All mount points / mount paths in the cluster.
+   * @throws IOException
+   */
+  public List<MountInfo> listMounts() throws IOException {
+    return namenode.listMounts();
+  }
+
+  /**
+   * Remove a PROVIDED mount point.
+   * @param mount Path in HDFS to mount the path in.
+   * @return true if the mount is successful.
+   * @throws IOException If there is an error adding the mount point.
+   */
+  public boolean removeMount(String mount) throws IOException {
+    checkOpen();
+    TraceScope scope = newPathTraceScope("removeMount", mount);
+    try {
+      return namenode.removeMount(mount);
+    } catch (RemoteException re) {
+      throw re.unwrapRemoteException(FileNotFoundException.class,
+          AccessControlException.class, UnresolvedPathException.class);
+    } finally {
+      scope.close();
     }
   }
 

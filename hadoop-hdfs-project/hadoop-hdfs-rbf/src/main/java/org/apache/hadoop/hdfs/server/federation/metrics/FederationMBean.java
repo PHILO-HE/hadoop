@@ -77,6 +77,18 @@ public interface FederationMBean {
   long getProvidedSpace();
 
   /**
+   * Total space used for caching PROVIDED data.
+   * @return space used for caching PROVIDED data.
+   */
+  long getProvidedCacheUsed();
+
+  /**
+   * Total space available for caching PROVIDED data.
+   * @return
+   */
+  long getProvidedCacheCapacity();
+
+  /**
    * Get the number of nameservices in the federation.
    * @return Number of nameservices in the federation.
    */

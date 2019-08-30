@@ -758,7 +758,7 @@ public class FSImage implements Closeable {
     
     if (!rollingRollback) {
       long txnsAdvanced = loadEdits(editStreams, target, Long.MAX_VALUE,
-          startOpt, recovery);
+          startOpt, recovery, false);
       needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
           txnsAdvanced);
     } else {
@@ -882,12 +882,18 @@ public class FSImage implements Closeable {
    */
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target) throws IOException {
-    return loadEdits(editStreams, target, Long.MAX_VALUE, null, null);
+    return loadEdits(editStreams, target, Long.MAX_VALUE, null, null, false);
+  }
+
+  public long loadEdits(Iterable<EditLogInputStream> editStreams,
+      FSNamesystem target, boolean trailEdits) throws IOException {
+    return loadEdits(editStreams, target, Long.MAX_VALUE, null, null,
+        trailEdits);
   }
 
   public long loadEdits(Iterable<EditLogInputStream> editStreams,
       FSNamesystem target, long maxTxnsToRead,
-      StartupOption startOpt, MetaRecoveryContext recovery)
+      StartupOption startOpt, MetaRecoveryContext recovery, boolean trailEdits)
       throws IOException {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
     StartupProgress prog = NameNode.getStartupProgress();
@@ -895,9 +901,9 @@ public class FSImage implements Closeable {
     
     long prevLastAppliedTxId = lastAppliedTxId;
     long remainingReadTxns = maxTxnsToRead;
-    try {    
-      FSEditLogLoader loader = new FSEditLogLoader(target, lastAppliedTxId);
-      
+    try (FSEditLogLoader loader = new FSEditLogLoader(
+        target, lastAppliedTxId, trailEdits)) {
+
       // Load latest edits
       for (EditLogInputStream editIn : editStreams) {
         LogAction logAction = loadEditLogHelper.record();

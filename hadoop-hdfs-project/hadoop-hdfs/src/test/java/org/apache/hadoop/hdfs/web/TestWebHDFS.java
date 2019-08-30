@@ -34,6 +34,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -48,7 +49,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -67,6 +70,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.StorageType;
@@ -2108,5 +2112,70 @@ public class TestWebHDFS {
   }
 
   final static class DummyThrowable extends Throwable {
+  }
+
+  @Test
+  public void testProvidedMounting() throws Exception {
+    Configuration conf  = WebHdfsTestUtil.createConf();
+    MiniDFSCluster.setupNamenodeProvidedConfiguration(conf);
+
+    MiniDFSCluster cluster = null;
+    try {
+      cluster = new MiniDFSCluster.Builder(conf).numDataNodes(1)
+          .storageTypes(
+              new StorageType[] { StorageType.DISK, StorageType.PROVIDED })
+          .build();
+      cluster.waitActive();
+      final WebHdfsFileSystem webFS = WebHdfsTestUtil.getWebHdfsFileSystem(conf,
+          WebHdfsConstants.WEBHDFS_SCHEME);
+
+      NameNode nn = cluster.getNameNode();
+      // mount the test FSImage directory as remote
+      File fsImageFile = nn.getFSImage().getStorage().getHighestFsImageName();
+      File dirToMount = fsImageFile.getParentFile();
+      String mountPoint = "/remotes/mount1/";
+
+      Map<String, String> xConfig = new HashMap<>();
+      xConfig.put("a", "b");
+      xConfig.put("c", "d");
+      webFS.addMount(dirToMount.toURI().toString(), mountPoint, xConfig);
+      // assert that the files in the remote are all mounted!
+      assertEquals(dirToMount.listFiles().length,
+          webFS.listStatus(new Path(mountPoint)).length);
+
+      List<MountInfo> result = webFS.listMounts();
+      assertEquals(1, result.size());
+      assertEquals(mountPoint, result.get(0).getMountPath() + "/");
+      assertEquals(dirToMount.toURI().toString(),
+          result.get(0).getRemotePath());
+
+      Map<String, byte[]> xattrs =
+          cluster.getFileSystem(0).getXAttrs(new Path(mountPoint));
+      assertEquals(3, xattrs.size());
+      assertEquals("true", new String(xattrs.get("user.isMount")));
+      assertEquals("b", new String(xattrs.get("trusted.mount.config.a")));
+      assertEquals("d", new String(xattrs.get("trusted.mount.config.c")));
+
+      webFS.removeMount(mountPoint);
+      // the path should no longer exist!
+      assertFalse(webFS.exists(new Path(mountPoint)));
+
+      webFS.addMount(dirToMount.toURI().toString(), mountPoint, null);
+      // assert that the files in the remote are all mounted!
+      assertEquals(dirToMount.listFiles().length,
+          webFS.listStatus(new Path(mountPoint)).length);
+
+      xattrs = cluster.getFileSystem(0).getXAttrs(new Path(mountPoint));
+      assertEquals(1, xattrs.size());
+      assertEquals("true", new String(xattrs.get("user.isMount")));
+
+      webFS.removeMount(mountPoint);
+      // the path should no longer exist!
+      assertFalse(webFS.exists(new Path(mountPoint)));
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown();
+      }
+    }
   }
 }

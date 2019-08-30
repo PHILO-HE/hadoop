@@ -88,6 +88,26 @@ public class MembershipStatsPBImpl extends MembershipStats
   }
 
   @Override
+  public void setProvidedCacheCapacity(long capacity) {
+    this.translator.getBuilder().setProvidedCacheCapacity(capacity);
+  }
+
+  @Override
+  public long getProvidedCacheCapacity() {
+    return this.translator.getProtoOrBuilder().getProvidedCacheCapacity();
+  }
+
+  @Override
+  public void setProvidedCacheUsed(long capacity) {
+    this.translator.getBuilder().setProvidedCacheUsed(capacity);
+  }
+
+  @Override
+  public long getProvidedCacheUsed() {
+    return this.translator.getProtoOrBuilder().getProvidedCacheUsed();
+  }
+
+  @Override
   public void setNumOfFiles(long files) {
     this.translator.getBuilder().setNumOfFiles(files);
   }

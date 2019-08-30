@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -63,7 +63,7 @@ public class NullBlockAliasMap extends BlockAliasMap<FileRegion> {
       }
 
       @Override
-      public Optional<FileRegion> resolve(Block ident) throws IOException {
+      public Optional<FileRegion> resolve(long blockId) throws IOException {
         throw new UnsupportedOperationException();
       }
     };
@@ -75,6 +75,11 @@ public class NullBlockAliasMap extends BlockAliasMap<FileRegion> {
     return new Writer<FileRegion>() {
       @Override
       public void store(FileRegion token) throws IOException {
+        // do nothing
+      }
+
+      @Override
+      public void remove(Block block) throws IOException {
         // do nothing
       }
 

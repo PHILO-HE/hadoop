@@ -495,8 +495,8 @@ public class BootstrapStandby implements Tool, Configurable {
    */
   private int formatAndDownloadAliasMap(String pathAliasMap,
       RemoteNameNodeInfo proxyInfo) throws IOException {
-    LOG.info("Bootstrapping the InMemoryAliasMap from "
-        + proxyInfo.getHttpAddress());
+    LOG.info("Bootstrapping the InMemoryAliasMap from " +
+        proxyInfo.getHttpAddress());
     if (pathAliasMap == null) {
       throw new IOException("InMemoryAliasMap enabled with null location");
     }
@@ -509,8 +509,8 @@ public class BootstrapStandby implements Tool, Configurable {
         return ERR_CODE_ALREADY_FORMATTED;
       } else {
         if (!FileUtil.fullyDelete(aliasMapFile)) {
-          throw new IOException(
-              "Cannot remove current alias map: " + aliasMapFile);
+          throw new IOException("Cannot remove current alias map: " +
+              aliasMapFile);
         }
       }
     }
@@ -519,8 +519,8 @@ public class BootstrapStandby implements Tool, Configurable {
     if (!aliasMapFile.mkdirs()) {
       throw new IOException("Cannot create directory " + aliasMapFile);
     }
-    TransferFsImage.downloadAliasMap(proxyInfo.getHttpAddress(), aliasMapFile,
-        true);
+    TransferFsImage.downloadAliasMap(
+        proxyInfo.getHttpAddress(), aliasMapFile, true);
     return 0;
   }
 

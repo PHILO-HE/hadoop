@@ -49,6 +49,8 @@ message NamenodeMembershipStatsRecordProto {
   optional uint32 numOfInMaintenanceLiveDataNodes = 26;
   optional uint32 numOfInMaintenanceDeadDataNodes = 27;
   optional uint32 numOfEnteringMaintenanceDataNodes = 28;
+  optional uint64 providedCacheCapacity = 29;
+  optional uint64 providedCacheUsed = 30;
 }
 
 message NamenodeMembershipRecordProto {

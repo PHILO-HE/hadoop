@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.UGIResolver;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -37,7 +38,7 @@ public class FsUGIResolver extends UGIResolver {
 
   FsUGIResolver() {
     super();
-    id = 0;
+    id = 1;
     usernames = new HashSet<String>();
     groupnames = new HashSet<String>();
   }

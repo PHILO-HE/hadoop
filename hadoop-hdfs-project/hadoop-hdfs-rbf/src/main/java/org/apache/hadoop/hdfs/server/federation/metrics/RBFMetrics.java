@@ -372,6 +372,18 @@ public class RBFMetrics implements RouterMBean, FederationMBean {
   }
 
   @Override
+  public long getProvidedCacheUsed() {
+    //AA-TODO
+    return 0;
+  }
+
+  @Override
+  public long getProvidedCacheCapacity() {
+    //AA-TODO
+    return 0;
+  }
+
+  @Override
   public long getUsedCapacity() {
     return getTotalCapacity() - getRemainingCapacity();
   }

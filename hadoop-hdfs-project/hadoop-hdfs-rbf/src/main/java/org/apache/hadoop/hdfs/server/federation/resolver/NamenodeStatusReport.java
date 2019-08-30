@@ -69,6 +69,8 @@ public class NamenodeStatusReport {
   private long numOfBlocksPendingDeletion = -1;
   private long totalSpace = -1;
   private long providedSpace = -1;
+  private long providedCacheCapacity = -1;
+  private long providedCacheUsed = -1;
 
   /** If the fields are valid. */
   private boolean registrationValid = false;
@@ -354,7 +356,8 @@ public class NamenodeStatusReport {
   public void setNamesystemInfo(long available, long total,
       long numFiles, long numBlocks, long numBlocksMissing,
       long numBlocksPendingReplication, long numBlocksUnderReplicated,
-      long numBlocksPendingDeletion, long providedSpace) {
+      long numBlocksPendingDeletion, long providedSpace,
+      long providedCacheCapacity, long providedCacheUsed) {
     this.totalSpace = total;
     this.availableSpace = available;
     this.numOfBlocks = numBlocks;
@@ -365,6 +368,8 @@ public class NamenodeStatusReport {
     this.numOfFiles = numFiles;
     this.statsValid = true;
     this.providedSpace = providedSpace;
+    this.providedCacheCapacity = providedCacheCapacity;
+    this.providedCacheUsed = providedCacheUsed;
   }
 
   /**
@@ -411,6 +416,21 @@ public class NamenodeStatusReport {
   public long getProvidedSpace() {
     return this.providedSpace;
   }
+
+  /**
+   * @return the maximum space that can be used to cache provided files.
+   */
+  public long getProvidedCacheCapacity() {
+    return this.providedCacheCapacity;
+  }
+
+  /**
+   * @return the actual space used to cache provided files.
+   */
+  public long getProvidedCacheUsed() {
+    return this.providedCacheUsed;
+  }
+
   /**
    * Get the number of missing blocks.
    *

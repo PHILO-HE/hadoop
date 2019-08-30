@@ -743,26 +743,19 @@ public class MiniRouterDFSCluster {
   }
 
   public void startCluster() {
-    startCluster(null);
+    startCluster(null, null);
   }
 
   public void startCluster(Configuration overrideConf) {
+    startCluster(overrideConf, null);
+  }
+
+  public void startCluster(Configuration overrideConf,
+      MiniDFSNNTopology topology) {
     try {
-      MiniDFSNNTopology topology = new MiniDFSNNTopology();
-      for (String ns : nameservices) {
-        NSConf conf = new MiniDFSNNTopology.NSConf(ns);
-        if (highAvailability) {
-          for (int i=0; i<namenodes.size()/nameservices.size(); i++) {
-            NNConf nnConf = new MiniDFSNNTopology.NNConf("nn" + i);
-            conf.addNN(nnConf);
-          }
-        } else {
-          NNConf nnConf = new MiniDFSNNTopology.NNConf(null);
-          conf.addNN(nnConf);
-        }
-        topology.addNameservice(conf);
+      if (topology == null) {
+        topology = buildAndGetTopology();
       }
-      topology.setFederation(true);
 
       // Set independent DNs across subclusters
       int numDNs = nameservices.size() * numDatanodesPerNameservice;
@@ -809,6 +802,31 @@ public class MiniRouterDFSCluster {
         cluster.shutdown();
       }
     }
+  }
+
+  /**
+   * Get the topology that will be used.
+   *
+   * @return the MiniDFSNNTopology used.
+   */
+  public MiniDFSNNTopology buildAndGetTopology() {
+    MiniDFSNNTopology topology = new MiniDFSNNTopology();
+    int numNNsPerNameservice = namenodes.size() / nameservices.size();
+    for (String ns : nameservices) {
+      NSConf conf = new MiniDFSNNTopology.NSConf(ns);
+      if (highAvailability) {
+        for (int i = 0; i < numNNsPerNameservice; i++) {
+          NNConf nnConf = new MiniDFSNNTopology.NNConf("nn" + i);
+          conf.addNN(nnConf);
+        }
+      } else {
+        NNConf nnConf = new MiniDFSNNTopology.NNConf(null);
+        conf.addNN(nnConf);
+      }
+      topology.addNameservice(conf);
+    }
+    topology.setFederation(true);
+    return topology;
   }
 
   public void startRouters()

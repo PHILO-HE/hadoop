@@ -351,7 +351,7 @@ public class EditLogTailer {
       long editsLoaded = 0;
       try {
         editsLoaded = image.loadEdits(
-            streams, namesystem, maxTxnsPerLock, null, null);
+            streams, namesystem, maxTxnsPerLock, null, null, true);
       } catch (EditLogInputException elie) {
         editsLoaded = elie.getNumEditsLoaded();
         throw elie;

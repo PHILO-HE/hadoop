@@ -24,7 +24,9 @@ import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedEntries;
 import org.apache.hadoop.fs.CacheFlag;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
+import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.QuotaUsage;
@@ -77,6 +79,7 @@ import org.apache.hadoop.hdfs.server.federation.resolver.ActiveNamenodeResolver;
 import org.apache.hadoop.hdfs.server.federation.resolver.FederationNamespaceInfo;
 import org.apache.hadoop.hdfs.server.federation.resolver.FileSubclusterResolver;
 import org.apache.hadoop.hdfs.server.federation.resolver.MountTableResolver;
+import org.apache.hadoop.hdfs.server.federation.resolver.PathLocation;
 import org.apache.hadoop.hdfs.server.federation.resolver.RemoteLocation;
 import org.apache.hadoop.hdfs.server.federation.router.security.RouterSecurityManager;
 import org.apache.hadoop.hdfs.server.federation.store.records.MountTable;
@@ -1722,6 +1725,65 @@ public class RouterClientProtocol implements ClientProtocol {
       throws IOException {
     rpcServer.checkOperation(NameNode.OperationCategory.READ, false);
     return null;
+  }
+
+  @Override
+  public boolean addMount(String remotePath, String mountPath,
+      Map<String, String> config)
+      throws FileAlreadyExistsException, IOException {
+    rpcServer.checkOperation(NameNode.OperationCategory.WRITE);
+
+    List<RemoteLocation> locations =
+        rpcServer.getLocationsForPath(mountPath, false);
+    RemoteMethod method = new RemoteMethod("addMount",
+        new Class<?>[] {String.class, String.class, Map.class},
+        remotePath, new RemoteParam(), config);
+    return rpcClient.invokeSequential(
+        locations, method, Boolean.class, Boolean.TRUE).booleanValue();
+  }
+
+  @Override
+  public List<MountInfo> listMounts() throws IOException {
+    rpcServer.checkOperation(NameNode.OperationCategory.READ);
+    RemoteMethod method = new RemoteMethod("listMounts");
+
+    Set<FederationNamespaceInfo> nss = namenodeResolver.getNamespaces();
+    Map<FederationNamespaceInfo, List> results =
+        rpcClient.invokeConcurrent(nss, method, true, false, List.class);
+
+    // TODO cover corner cases
+    // Go over the RBF mount points to find where the PROVIDED mounts are
+    List<MountInfo> combinedData = new ArrayList<>();
+    String root = "/";
+    List<String> rbfMountPaths = subclusterResolver.getMountPoints(root);
+    for (String mountPoint : rbfMountPaths) {
+      String rbfMountPath = root + mountPoint;
+      PathLocation remote =
+          subclusterResolver.getDestinationForPath(rbfMountPath);
+      for (RemoteLocation dest : remote.getDestinations()) {
+        for (Map.Entry<FederationNamespaceInfo, List> e : results.entrySet()) {
+          String resultNsId = e.getKey().getNameserviceId();
+          if (dest.getNameserviceId().equals(resultNsId)) {
+            List<MountInfo> remoteMounts = e.getValue();
+            for (MountInfo info : remoteMounts) {
+              combinedData.add(new MountInfo(rbfMountPath, info));
+            }
+          }
+        }
+      }
+    }
+
+    return combinedData;
+  }
+
+  @Override
+  public boolean removeMount(String mountPath) throws IOException {
+    final List<RemoteLocation> locations =
+        rpcServer.getLocationsForPath(mountPath, false);
+    RemoteMethod method = new RemoteMethod("removeMount",
+        new Class<?>[] {String.class}, new RemoteParam());
+    return rpcClient.invokeSequential(
+        locations, method, Boolean.class, Boolean.TRUE).booleanValue();
   }
 
   /**

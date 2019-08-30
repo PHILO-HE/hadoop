@@ -75,6 +75,20 @@ public interface NameNodeMXBean {
   long getProvidedCapacity();
 
   /**
+   * Gets configured capacity of the cache for provided data, in bytes.
+   *
+   * @return the total raw bytes of capacity to cache provided data.
+   */
+  long getProvidedCacheCapacityTotal();
+
+  /**
+   * Gets capacity of the provided storage mounted, in bytes.
+   *
+   * @return the total raw bytes of provided data cached in local storage.
+   */
+  long getProvidedCacheUsedTotal();
+
+  /**
    * Gets the safemode status.
    * 
    * @return the safemode status.

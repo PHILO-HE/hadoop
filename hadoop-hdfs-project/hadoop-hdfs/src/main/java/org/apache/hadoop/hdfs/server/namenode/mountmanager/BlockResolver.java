@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +73,7 @@ public abstract class BlockResolver {
   /**
    * @return the maximum sequentially allocated block ID for this filesystem.
    */
-  protected abstract long lastId();
+  public abstract long lastId();
 
   /**
    * @param status the external reference.

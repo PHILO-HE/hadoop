@@ -81,6 +81,8 @@ public interface DatanodeProtocol {
   final static int DNA_ERASURE_CODING_RECONSTRUCTION = 11; // erasure coding reconstruction command
   int DNA_BLOCK_STORAGE_MOVEMENT = 12; // block storage movement command
   int DNA_DROP_SPS_WORK_COMMAND = 13; // drop sps work command
+  final static int DNA_PROVIDEDVOLADD = 14;    // Add a provided/remote volume
+  final static int DNA_PROVIDEDVOLREMOVE = 15; // Remove a provided volume
 
   /** 
    * Register Datanode.

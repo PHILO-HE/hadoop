@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
@@ -73,6 +74,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.GlobalStorageStatistics;
 import org.apache.hadoop.fs.GlobalStorageStatistics.StorageStatisticsProvider;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.QuotaUsage;
 import org.apache.hadoop.fs.StorageStatistics;
 import org.apache.hadoop.fs.permission.FsCreateModes;
@@ -1560,6 +1562,56 @@ public class WebHdfsFileSystem extends FileSystem
       return new FSDataInputStream(
           webfsInputStream.createWrappedInputStream());
     }
+  }
+
+  @Override
+  public boolean addMount(String remote, String mount,
+      Map<String, String> config) throws IOException {
+    statistics.incrementWriteOps(1);
+    final HttpOpParam.Op op = PutOpParam.Op.ADDMOUNT;
+
+    String xConfig;
+    if (config != null) {
+      char[] charsToEscape = { '=', ',' };
+      char escapeChar = '\\';
+      xConfig = config.entrySet().stream().map(
+          e -> e.getKey() + "=" + StringUtils
+              .escapeString(e.getValue(), escapeChar, charsToEscape))
+          .collect(Collectors.joining(","));
+    } else {
+      xConfig = "";
+    }
+
+    return new FsPathBooleanRunner(op, new Path(mount),
+        new RemotePathParam(remote), new RemoteConfigParam(xConfig)).run();
+  }
+
+  @Override
+  public List<MountInfo> listMounts() throws IOException {
+    statistics.incrementReadOps(1);
+    storageStatistics.incrementOpCounter(OpType.LIST_STATUS);
+
+    // The following path is not really needed for listing mounts. It is
+    // placeholder to enable code reuse.
+    Path f = new Path("/");
+    final HttpOpParam.Op op = GetOpParam.Op.LISTMOUNTS;
+    List<MountInfo> paths = new FsPathResponseRunner<List>(op, f) {
+      @Override
+      List<MountInfo> decodeResponse(Map<?,?> json) {
+        return JsonUtilClient.toMountInfos(json);
+      }
+    }.run();
+    if (paths == null) {
+      throw new FileNotFoundException("File does not exist: " + f);
+    }
+    return paths;
+  }
+
+  @Override
+  public boolean removeMount(String mountPath) throws IOException {
+    statistics.incrementWriteOps(1);
+    final HttpOpParam.Op op = PutOpParam.Op.REMOVEMOUNT;
+    return new FsPathBooleanRunner(op, new Path(mountPath)).run();
   }
 
   @Override

@@ -77,6 +77,8 @@ The HTTP REST API supports the complete [FileSystem](../../api/org/apache/hadoop
     * [`ENABLEECPOLICY`](#Enable_EC_Policy) (see [HDFSErasureCoding](./HDFSErasureCoding.html#Administrative_commands).enablePolicy)
     * [`DISABLEECPOLICY`](#Disable_EC_Policy) (see [HDFSErasureCoding](./HDFSErasureCoding.html#Administrative_commands).disablePolicy)
     * [`SETECPOLICY`](#Set_EC_Policy) (see [HDFSErasureCoding](./HDFSErasureCoding.html#Administrative_commands).setErasureCodingPolicy)
+    * [`ADDMOUNT`](#Add_Mount) (see [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).addMount)
+    * [`REMOVEMOUNT`](#Remove_Mount) (see [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).removeMount)
 *   HTTP POST
     * [`APPEND`](#Append_to_a_File) (see [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).append)
     * [`CONCAT`](#Concat_Files) (see [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).concat)
@@ -1660,6 +1662,41 @@ See also: [`token`](#Token), [DelegationTokenAuthenticator](../../api/org/apache
 
 See also: [`token`](#Token), [DelegationTokenAuthenticator](../../api/org/apache/hadoop/security/token/delegation/web/DelegationTokenAuthenticator.html).cancelDelegationToken
 
+Provided Storage Mount Operations
+---------------------------
+
+### Adding a mount
+
+* Submit a HTTP PUT request.
+
+        curl -i -X PUT "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=ADDMOUNT&remotepath=<remote URI>[&remoteconfig=<remote config>]"
+
+    The client receives a response with a [`boolean` JSON object](#Boolean_JSON_Schema):
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+        Transfer-Encoding: chunked
+
+        {"boolean": true}
+
+See also: [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).addMount
+
+### Removing a mount
+
+* Submit a HTTP PUT request.
+
+        curl -i -X POST "http://<HOST>:<PORT>/webhdfs/v1/<PATH>?op=REMOVEMOUNT"
+
+    The client receives a response with a [`boolean` JSON object](#Boolean_JSON_Schema):
+
+        HTTP/1.1 200 OK
+        Content-Type: application/json
+        Transfer-Encoding: chunked
+
+        {"boolean": true}
+
+See also: [FileSystem](../../api/org/apache/hadoop/fs/FileSystem.html).removeMount
+
 Error Responses
 ---------------
 
@@ -3070,6 +3107,30 @@ See also: [`CREATE`](#Create_and_Write_to_a_File), [`MKDIRS`](#Make_a_Directory)
 | Syntax | true |
 
 See also: [`RENAME`](#Rename_a_FileDirectory)
+
+### Remote Path
+
+| Name | `remotePath` |
+|:---- |:---- |
+| Description | Location of a directory on a remote/external filesystem. |
+| Type | String |
+| Default Value | \<empty\> (an invalid path) |
+| Valid Values | An absolute FileSystem path with scheme and authority |
+| Syntax | Any path. |
+
+See also: [`ADDMOUNT`](#Add_Mount)
+
+### Remote Config
+
+| Name | `remoteconfig` |
+|:---- |:---- |
+| Description | Configuration required to establish connection to a remote filesystem. |
+| Type | String |
+| Default Value | \<empty\>  |
+| Valid Values | Comma separated key=value pairs, e.g. user=foo,token=bar |
+| Syntax | Any URL encoded string. |
+
+See also: [`ADDMOUNT`](#Add_Mount)
 
 ### Renewer
 

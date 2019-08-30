@@ -276,6 +276,8 @@ public class MembershipNamenodeResolver
       stats.setAvailableSpace(report.getAvailableSpace());
       stats.setTotalSpace(report.getTotalSpace());
       stats.setProvidedSpace(report.getProvidedSpace());
+      stats.setProvidedCacheCapacity(report.getProvidedCacheCapacity());
+      stats.setProvidedCacheUsed(report.getProvidedCacheUsed());
       stats.setNumOfDecommissioningDatanodes(
           report.getNumDecommissioningDatanodes());
       stats.setNumOfActiveDatanodes(report.getNumLiveDatanodes());

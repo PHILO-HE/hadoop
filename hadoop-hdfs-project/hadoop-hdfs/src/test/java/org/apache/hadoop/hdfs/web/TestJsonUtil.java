@@ -27,12 +27,16 @@ import static org.junit.Assert.assertFalse;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.XAttr;
 import org.apache.hadoop.fs.XAttrCodec;
@@ -384,5 +388,35 @@ public class TestJsonUtil {
     } catch (Exception e) {
       // expected
     }
+  }
+
+  @Test
+  public void testListMountsJson() throws Exception {
+    String mount1 = "/mounts/user1";
+    String remote1 =  "hdfs://nn1/dir1";
+    MountInfo.MountStatus status1 = MountInfo.MountStatus.CREATING;
+
+    String mount2 = "/mounts/user2";
+    String remote2 = "adls://blob@storage.windows.net";
+    MountInfo.MountStatus status2 = MountInfo.MountStatus.CREATED;
+
+    String jsonString = "{\"Mounts\":" + "[{\"mountPath\":\"" + mount1
+        + "\",\"mountStatus\":\"" + status1 + "\",\"remotePath\":\"" + remote1
+        + "\"}," + "{\"mountPath\":\"" + mount2 + "\",\"mountStatus\":\""
+        + status2 + "\",\"remotePath\":\"" + remote2 + "\"}]}";
+
+    ObjectReader reader = new ObjectMapper().reader(Map.class);
+    Map<?, ?> json = reader.readValue(jsonString);
+
+    Set<MountInfo> result = new HashSet<>(JsonUtilClient.toMountInfos(json));
+    Assert.assertEquals(2, result.size());
+
+    List<MountInfo> expected = new LinkedList<>();
+    expected.add(new MountInfo(mount1, remote1, status1));
+    expected.add(new MountInfo(mount2, remote2, status2));
+    Assert.assertEquals(new HashSet<>(expected), result);
+
+    Assert.assertEquals(jsonString,
+        JsonUtil.toMountInfosJson(new LinkedList<>(expected)));
   }
 }

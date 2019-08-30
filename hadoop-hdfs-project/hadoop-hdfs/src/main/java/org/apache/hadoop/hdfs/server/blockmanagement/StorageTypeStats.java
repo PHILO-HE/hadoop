@@ -83,7 +83,7 @@ public class StorageTypeStats {
     // for PROVIDED storage, avoid counting the same storage
     // across multiple datanodes
     if (storageType == StorageType.PROVIDED && nodesInService > 0) {
-      return capacityRemaining/nodesInService;
+      return 0;
     }
     return capacityRemaining;
   }

@@ -41,12 +41,14 @@ import com.google.protobuf.CodedInputStream;
 import org.apache.hadoop.crypto.CipherOption;
 import org.apache.hadoop.crypto.CipherSuite;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.hdfs.AddBlockFlag;
 import org.apache.hadoop.fs.CacheFlag;
 import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FileEncryptionInfo;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.MountInfo.MountStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.QuotaUsage;
 import org.apache.hadoop.fs.StorageType;
@@ -137,6 +139,8 @@ import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetEdi
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsECBlockGroupStatsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsReplicatedBlockStatsResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.GetFsStatsResponseProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.MountInfoProto;
+import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.MountStatusProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.OpenFilesBatchResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.OpenFilesTypeProto;
 import org.apache.hadoop.hdfs.protocol.proto.ClientNamenodeProtocolProtos.RollingUpgradeActionProto;
@@ -3374,7 +3378,8 @@ public class PBHelperClient {
     long offset = providedStorageLocationProto.getOffset();
     ByteString nonce = providedStorageLocationProto.getNonce();
 
-    if (path == null || length == -1 || offset == -1 || nonce == null) {
+    if (path == null || length == -1 || offset == -1 || nonce == null ||
+        path.length() == 0) {
       return null;
     } else {
       return new ProvidedStorageLocation(new Path(path), offset, length,
@@ -3415,5 +3420,40 @@ public class PBHelperClient {
       }
     }
     return typeProtos;
+  }
+
+  public static MountStatusProto convert(MountInfo.MountStatus status) {
+    switch (status) {
+      case CREATING:
+        return MountStatusProto.CREATING;
+      case CREATED:
+        return MountStatusProto.CREATED;
+      default:
+        throw new IllegalArgumentException("Unknown status: " + status);
+    }
+  }
+
+  public static MountInfo.MountStatus convert(MountStatusProto status) {
+    switch (status) {
+      case CREATING:
+        return MountStatus.CREATING;
+      case CREATED:
+        return MountStatus.CREATED;
+      default:
+        throw new IllegalArgumentException("Unknown status: " + status);
+    }
+  }
+
+  public static MountInfoProto convert(MountInfo mountInfo) {
+    return MountInfoProto.newBuilder()
+        .setMountPath(mountInfo.getMountPath())
+        .setRemotePath(mountInfo.getRemotePath())
+        .setMountStatus(convert(mountInfo.getMountStatus()))
+        .build();
+  }
+
+  public static MountInfo convert(MountInfoProto proto) {
+    return new MountInfo(proto.getMountPath(), proto.getRemotePath(),
+        convert(proto.getMountStatus()));
   }
 }

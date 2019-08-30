@@ -17,38 +17,33 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.HadoopIllegalArgumentException;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
-import org.apache.hadoop.hdfs.util.FoldedTreeSet;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.util.AutoCloseableLock;
+import org.apache.hadoop.hdfs.server.datanode.StorageLocation;
 
 /**
- * Maintains the replica map. 
+ * Maintains the mapping from volumes to {@link VolumeReplicaMap}s.
+ * All replica objects are maintained in {@link VolumeReplicaMap}s. This class
+ * serves as a container for different {@link VolumeReplicaMap}, one per
+ * volume of the Datanode.
  */
 class ReplicaMap {
   // Lock object to synchronize this instance.
   private final AutoCloseableLock lock;
-  
-  // Map of block pool Id to a set of ReplicaInfo.
-  private final Map<String, FoldedTreeSet<ReplicaInfo>> map = new HashMap<>();
 
-  // Special comparator used to compare Long to Block ID in the TreeSet.
-  private static final Comparator<Object> LONG_AND_BLOCK_COMPARATOR
-      = new Comparator<Object>() {
-
-        @Override
-        public int compare(Object o1, Object o2) {
-          long lookup = (long) o1;
-          long stored = ((Block) o2).getBlockId();
-          return lookup > stored ? 1 : lookup < stored ? -1 : 0;
-        }
-      };
+  protected Map<FsVolumeImpl, VolumeReplicaMap> innerReplicaMaps;
 
   ReplicaMap(AutoCloseableLock lock) {
     if (lock == null) {
@@ -56,21 +51,26 @@ class ReplicaMap {
           "Lock to synchronize on cannot be null");
     }
     this.lock = lock;
+    innerReplicaMaps = new HashMap<>();
   }
-  
+
   String[] getBlockPoolList() {
     try (AutoCloseableLock l = lock.acquire()) {
-      return map.keySet().toArray(new String[map.keySet().size()]);   
+      HashSet<String> blockPoolList = new HashSet<>();
+      for (VolumeReplicaMap replicaMap : innerReplicaMaps.values()) {
+        blockPoolList.addAll(Arrays.asList(replicaMap.getBlockPoolList()));
+      }
+      return blockPoolList.toArray(new String[blockPoolList.size()]);
     }
   }
   
-  private void checkBlockPool(String bpid) {
+  protected void checkBlockPool(String bpid) {
     if (bpid == null) {
       throw new IllegalArgumentException("Block Pool Id is null");
     }
   }
-  
-  private void checkBlock(Block b) {
+
+  protected void checkBlock(Block b) {
     if (b == null) {
       throw new IllegalArgumentException("Block is null");
     }
@@ -87,15 +87,17 @@ class ReplicaMap {
   ReplicaInfo get(String bpid, Block block) {
     checkBlockPool(bpid);
     checkBlock(block);
-    ReplicaInfo replicaInfo = get(bpid, block.getBlockId());
-    if (replicaInfo != null && 
-        block.getGenerationStamp() == replicaInfo.getGenerationStamp()) {
-      return replicaInfo;
+    try (AutoCloseableLock l = lock.acquire()) {
+      ReplicaInfo replicaInfo = get(bpid, block.getBlockId());
+      if (replicaInfo != null &&
+          block.getGenerationStamp() == replicaInfo.getGenerationStamp()) {
+        return replicaInfo;
+      }
     }
     return null;
   }
   
-  
+
   /**
    * Get the meta information of the replica that matches the block id
    * @param bpid block pool id
@@ -105,12 +107,15 @@ class ReplicaMap {
   ReplicaInfo get(String bpid, long blockId) {
     checkBlockPool(bpid);
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set == null) {
-        return null;
+      // check inner-maps; each of them will have their own synchronization.
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        ReplicaInfo info = inner.get(bpid, blockId);
+        if (info != null) {
+          return info;
+        }
       }
-      return set.get(blockId, LONG_AND_BLOCK_COMPARATOR);
     }
+    return null;
   }
 
   /**
@@ -124,14 +129,38 @@ class ReplicaMap {
   ReplicaInfo add(String bpid, ReplicaInfo replicaInfo) {
     checkBlockPool(bpid);
     checkBlock(replicaInfo);
-    try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set == null) {
-        // Add an entry for block pool if it does not exist already
-        set = new FoldedTreeSet<>();
-        map.put(bpid, set);
+      try (AutoCloseableLock l = lock.acquire()) {
+      // check if the replica already exists
+      ReplicaInfo existingReplica = get(bpid, replicaInfo.getBlockId());
+      if (existingReplica != null) {
+        // the replica being added is for a different volume; remove it.
+        if (!existingReplica.getVolume().equals(replicaInfo.getVolume())) {
+          remove(bpid, replicaInfo.getBlockId());
+        }
       }
-      return set.addOrReplace(replicaInfo);
+      VolumeReplicaMap innerMap = innerReplicaMaps.get(replicaInfo.getVolume());
+      if (innerMap == null) {
+        innerMap = new VolumeReplicaMap(new AutoCloseableLock());
+        innerReplicaMaps.put((FsVolumeImpl) replicaInfo.getVolume(), innerMap);
+      }
+      return innerMap.add(bpid, replicaInfo);
+    }
+  }
+
+  @VisibleForTesting
+  void addAll(ReplicaMap other) {
+    try (AutoCloseableLock l = lock.acquire()) {
+      for (FsVolumeImpl volume : other.innerReplicaMaps.keySet()) {
+        if (innerReplicaMaps.containsKey(volume)) {
+          innerReplicaMaps.get(volume).addAll(
+              other.innerReplicaMaps.get(volume));
+        } else {
+          VolumeReplicaMap innerMap = new VolumeReplicaMap(
+              new AutoCloseableLock());
+          innerMap.addAll(other.innerReplicaMaps.get(volume));
+          innerReplicaMaps.put(volume, innerMap);
+        }
+      }
     }
   }
 
@@ -143,18 +172,18 @@ class ReplicaMap {
     checkBlockPool(bpid);
     checkBlock(replicaInfo);
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set == null) {
-        // Add an entry for block pool if it does not exist already
-        set = new FoldedTreeSet<>();
-        map.put(bpid, set);
+      FsVolumeSpi volume = replicaInfo.getVolume();
+      VolumeReplicaMap innerMap = innerReplicaMaps.get(volume);
+      if (innerMap == null) {
+        innerMap = new VolumeReplicaMap(new AutoCloseableLock());
+        innerReplicaMaps.put((FsVolumeImpl) volume, innerMap);
       }
-      ReplicaInfo oldReplicaInfo = set.get(replicaInfo.getBlockId(),
-          LONG_AND_BLOCK_COMPARATOR);
+
+      ReplicaInfo oldReplicaInfo = innerMap.get(bpid, replicaInfo.getBlockId());
       if (oldReplicaInfo != null) {
         return oldReplicaInfo;
       } else {
-        set.addOrReplace(replicaInfo);
+        innerMap.add(bpid, replicaInfo);
       }
       return replicaInfo;
     }
@@ -163,22 +192,44 @@ class ReplicaMap {
   /**
    * Add all entries from the given replica map into the local replica map.
    */
-  void addAll(ReplicaMap other) {
-    map.putAll(other.map);
+  void addAll(FsVolumeImpl volume, VolumeReplicaMap other) {
+    if (volume != null && other != null) {
+      try (AutoCloseableLock l = lock.acquire()) {
+        if (innerReplicaMaps.containsKey(volume)) {
+          innerReplicaMaps.get(volume).addAll(other);
+        } else {
+          innerReplicaMaps.put(volume, other);
+        }
+      }
+    }
   }
-
 
   /**
    * Merge all entries from the given replica map into the local replica map.
    */
   void mergeAll(ReplicaMap other) {
-    other.map.forEach(
-        (bp, replicaInfos) -> {
-          replicaInfos.forEach(
-              replicaInfo -> add(bp, replicaInfo)
-          );
+    try (AutoCloseableLock l = lock.acquire()) {
+      for (FsVolumeImpl volume : other.innerReplicaMaps.keySet()) {
+        this.mergeAll(volume, other.innerReplicaMaps.get(volume));
+      }
+    }
+  }
+
+  /**
+   * Merge all entries from the given volume replica map into the local replica
+   * map.
+   */
+  void mergeAll(FsVolumeImpl volume, VolumeReplicaMap other) {
+    if (volume != null && other != null) {
+      try (AutoCloseableLock l = lock.acquire()) {
+        if (innerReplicaMaps.containsKey(volume)) {
+          //AA-TODO is addAll below valid
+          innerReplicaMaps.get(volume).addAll(other);
+        } else {
+          innerReplicaMaps.put(volume, other);
         }
-    );
+      }
+    }
   }
   
   /**
@@ -192,21 +243,22 @@ class ReplicaMap {
   ReplicaInfo remove(String bpid, Block block) {
     checkBlockPool(bpid);
     checkBlock(block);
+    // check the inner maps.
+    return removeFromInnerMaps(bpid, block);
+  }
+
+  private ReplicaInfo removeFromInnerMaps(String bpid, Block block) {
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set != null) {
-        ReplicaInfo replicaInfo =
-            set.get(block.getBlockId(), LONG_AND_BLOCK_COMPARATOR);
-        if (replicaInfo != null &&
-            block.getGenerationStamp() == replicaInfo.getGenerationStamp()) {
-          return set.removeAndGet(replicaInfo);
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        ReplicaInfo info = inner.remove(bpid, block);
+        if (info != null) {
+          return info;
         }
       }
     }
-    
     return null;
   }
-  
+
   /**
    * Remove the replica's meta information from the map if present
    * @param bpid block pool id
@@ -215,25 +267,34 @@ class ReplicaMap {
    */
   ReplicaInfo remove(String bpid, long blockId) {
     checkBlockPool(bpid);
+    return removeFromInnerMaps(bpid, blockId);
+  }
+
+  private ReplicaInfo removeFromInnerMaps(String bpid, long blockId) {
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set != null) {
-        return set.removeAndGet(blockId, LONG_AND_BLOCK_COMPARATOR);
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        ReplicaInfo info = inner.remove(bpid, blockId);
+        if (info != null) {
+          return info;
+        }
       }
     }
     return null;
   }
- 
+
   /**
    * Get the size of the map for given block pool
    * @param bpid block pool id
    * @return the number of replicas in the map
    */
   int size(String bpid) {
+    int numReplicas = 0;
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      return set != null ? set.size() : 0;
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        numReplicas += inner.size(bpid);
+      }
     }
+    return numReplicas;
   }
   
   /**
@@ -247,17 +308,23 @@ class ReplicaMap {
    * @return a collection of the replicas belonging to the block pool
    */
   Collection<ReplicaInfo> replicas(String bpid) {
-    return map.get(bpid);
+    try (AutoCloseableLock l = lock.acquire()) {
+      Collection<ReplicaInfo> allReplicas = new ArrayList<>();
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        Collection<ReplicaInfo> replicas = inner.replicas(bpid);
+        if (replicas != null) {
+          allReplicas.addAll(replicas);
+        }
+      }
+      return allReplicas;
+    }
   }
 
   void initBlockPool(String bpid) {
     checkBlockPool(bpid);
     try (AutoCloseableLock l = lock.acquire()) {
-      FoldedTreeSet<ReplicaInfo> set = map.get(bpid);
-      if (set == null) {
-        // Add an entry for block pool if it does not exist already
-        set = new FoldedTreeSet<>();
-        map.put(bpid, set);
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        inner.initBlockPool(bpid);
       }
     }
   }
@@ -265,7 +332,9 @@ class ReplicaMap {
   void cleanUpBlockPool(String bpid) {
     checkBlockPool(bpid);
     try (AutoCloseableLock l = lock.acquire()) {
-      map.remove(bpid);
+      for (VolumeReplicaMap inner : innerReplicaMaps.values()) {
+        inner.cleanUpBlockPool(bpid);
+      }
     }
   }
   
@@ -275,5 +344,27 @@ class ReplicaMap {
    */
   AutoCloseableLock getLock() {
     return lock;
+  }
+
+  public VolumeReplicaMap get(FsVolumeImpl vol) {
+    try (AutoCloseableLock l = lock.acquire()) {
+      return innerReplicaMaps.get(vol);
+    }
+  }
+
+  /**
+   * Remove all replicas that belong for a particular volume.
+   * @param sdLocation the Storage location of the volume to remove
+   *                   replicas from.
+   */
+  public void removeAll(StorageLocation sdLocation) {
+    try (AutoCloseableLock l = lock.acquire()) {
+      for (FsVolumeImpl volume : innerReplicaMaps.keySet()) {
+        if (volume.getStorageLocation().equals(sdLocation)) {
+          innerReplicaMaps.remove(volume);
+          return;
+        }
+      }
+    }
   }
 }

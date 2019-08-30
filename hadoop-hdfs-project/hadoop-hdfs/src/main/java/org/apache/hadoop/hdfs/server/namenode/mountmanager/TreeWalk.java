@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
+
+import org.apache.hadoop.fs.Path;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -42,6 +44,8 @@ public abstract class TreeWalk implements Iterable<TreePath> {
 
   public abstract TreeIterator iterator();
 
+  public abstract Path getRoot();
+
   /**
    * Enumerator class for hierarchies. Implementations SHOULD support a fork()
    * operation yielding a subtree of the current cursor.
@@ -50,7 +54,7 @@ public abstract class TreeWalk implements Iterable<TreePath> {
 
     private final Deque<TreePath> pending;
 
-    TreeIterator() {
+    public TreeIterator() {
       this(new ArrayDeque<TreePath>());
     }
 

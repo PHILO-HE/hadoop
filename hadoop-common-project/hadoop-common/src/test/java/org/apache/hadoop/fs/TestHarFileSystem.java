@@ -250,6 +250,11 @@ public class TestHarFileSystem {
         Set<String> mandatoryKeys,
         Configuration options,
         int bufferSize) throws IOException;
+
+    public boolean addMount(String remote, String mount,
+        Map<String, String> remoteConfig) throws IOException;
+    public boolean removeMount(String mountPath) throws IOException;
+    public List<MountInfo> listMounts() throws IOException;
   }
 
   @Test

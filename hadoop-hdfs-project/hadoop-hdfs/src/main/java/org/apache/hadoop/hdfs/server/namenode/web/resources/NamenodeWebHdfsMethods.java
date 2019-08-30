@@ -33,6 +33,7 @@ import java.util.Base64.Encoder;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import javax.servlet.ServletContext;
@@ -65,6 +66,7 @@ import org.apache.hadoop.fs.FileEncryptionInfo;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.XAttr;
 import org.apache.hadoop.fs.permission.AclStatus;
@@ -94,6 +96,7 @@ import org.apache.hadoop.hdfs.server.common.JspHelper;
 import org.apache.hadoop.hdfs.server.namenode.FSNamesystem;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeProtocols;
+import org.apache.hadoop.hdfs.util.RemoteMountUtils;
 import org.apache.hadoop.hdfs.web.JsonUtil;
 import org.apache.hadoop.hdfs.web.ParamFilter;
 import org.apache.hadoop.hdfs.web.WebHdfsConstants;
@@ -509,14 +512,19 @@ public class NamenodeWebHdfsMethods {
       @QueryParam(StoragePolicyParam.NAME) @DefaultValue(StoragePolicyParam
           .DEFAULT) final StoragePolicyParam policyName,
       @QueryParam(ECPolicyParam.NAME) @DefaultValue(ECPolicyParam
-              .DEFAULT) final ECPolicyParam ecpolicy
+              .DEFAULT) final ECPolicyParam ecpolicy,
+      @QueryParam(RemotePathParam.NAME) @DefaultValue(RemotePathParam.DEFAULT)
+          final RemotePathParam remote,
+      @QueryParam(RemoteConfigParam.NAME) @DefaultValue(RemoteConfigParam.DEFAULT)
+          RemoteConfigParam remoteConfig
       ) throws IOException, InterruptedException {
     return put(ugi, delegation, username, doAsUser, ROOT, op, destination,
         owner, group, permission, unmaskedPermission, overwrite, bufferSize,
         replication, blockSize, modificationTime, accessTime, renameOptions,
         createParent, delegationTokenArgument, aclPermission, xattrName,
         xattrValue, xattrSetFlag, snapshotName, oldSnapshotName,
-        excludeDatanodes, createFlagParam, noredirect, policyName, ecpolicy);
+        excludeDatanodes, createFlagParam, noredirect, policyName, ecpolicy,
+        remote, remoteConfig);
   }
 
   /** Validate all required params. */
@@ -598,7 +606,11 @@ public class NamenodeWebHdfsMethods {
       @QueryParam(StoragePolicyParam.NAME) @DefaultValue(StoragePolicyParam
           .DEFAULT) final StoragePolicyParam policyName,
       @QueryParam(ECPolicyParam.NAME) @DefaultValue(ECPolicyParam.DEFAULT)
-      final ECPolicyParam ecpolicy
+      final ECPolicyParam ecpolicy,
+      @QueryParam(RemotePathParam.NAME) @DefaultValue(RemotePathParam.DEFAULT)
+          final RemotePathParam remote,
+      @QueryParam(RemoteConfigParam.NAME) @DefaultValue(RemoteConfigParam.DEFAULT)
+          RemoteConfigParam remoteConfig
       ) throws IOException, InterruptedException {
 
     init(ugi, delegation, username, doAsUser, path, op, destination, owner,
@@ -606,7 +618,7 @@ public class NamenodeWebHdfsMethods {
         replication, blockSize, modificationTime, accessTime, renameOptions,
         delegationTokenArgument, aclPermission, xattrName, xattrValue,
         xattrSetFlag, snapshotName, oldSnapshotName, excludeDatanodes,
-        createFlagParam, noredirect, policyName);
+        createFlagParam, noredirect, policyName, remote, remoteConfig);
 
     return doAs(ugi, new PrivilegedExceptionAction<Response>() {
       @Override
@@ -618,7 +630,8 @@ public class NamenodeWebHdfsMethods {
               renameOptions, createParent, delegationTokenArgument,
               aclPermission, xattrName, xattrValue, xattrSetFlag,
               snapshotName, oldSnapshotName, excludeDatanodes,
-              createFlagParam, noredirect, policyName, ecpolicy);
+              createFlagParam, noredirect, policyName, ecpolicy, remote,
+              remoteConfig);
       }
     });
   }
@@ -654,7 +667,9 @@ public class NamenodeWebHdfsMethods {
       final CreateFlagParam createFlagParam,
       final NoRedirectParam noredirectParam,
       final StoragePolicyParam policyName,
-      final ECPolicyParam ecpolicy
+      final ECPolicyParam ecpolicy,
+      final RemotePathParam remote,
+      final RemoteConfigParam remoteConfig
       ) throws IOException, URISyntaxException {
     final Configuration conf = (Configuration)context.getAttribute(JspHelper.CURRENT_CONF);
     final ClientProtocol cp = getRpcClientProtocol();
@@ -831,6 +846,22 @@ public class NamenodeWebHdfsMethods {
       validateOpParams(op, ecpolicy);
       cp.setErasureCodingPolicy(fullpath, ecpolicy.getValue());
       return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
+    case ADDMOUNT: {
+      if (remote.getValue() == null) {
+        throw new IllegalArgumentException(
+            "Remote file system path cannot be empty or invalid.");
+      }
+      Map<String, String> config =
+          RemoteMountUtils.decodeConfig(remoteConfig.getValue());
+      boolean result = cp.addMount(remote.getValue(), fullpath, config);
+      final String js = JsonUtil.toJsonString("boolean", result);
+      return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
+    }
+    case REMOVEMOUNT: {
+      boolean result = cp.removeMount(fullpath);
+      final String js = JsonUtil.toJsonString("boolean", result);
+      return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
+    }
     default:
       throw new UnsupportedOperationException(op + " is not supported");
     }
@@ -1162,6 +1193,12 @@ public class NamenodeWebHdfsMethods {
     {
       final StreamingOutput streaming = getListingStream(cp, fullpath);
       return Response.ok(streaming).type(MediaType.APPLICATION_JSON).build();
+    }
+    case LISTMOUNTS:
+    {
+      final List<MountInfo> mountInfos = cp.listMounts();
+      final String js = JsonUtil.toMountInfosJson(mountInfos);
+      return Response.ok(js).type(MediaType.APPLICATION_JSON).build();
     }
     case GETCONTENTSUMMARY:
     {

@@ -67,6 +67,7 @@ import org.apache.hadoop.hdfs.DFSClient;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.MiniDFSNNTopology;
 import org.apache.hadoop.hdfs.NameNodeProxies;
 import org.apache.hadoop.hdfs.client.HdfsDataOutputStream;
 import org.apache.hadoop.hdfs.protocol.AddErasureCodingPolicyResponse;
@@ -194,9 +195,13 @@ public class TestRouterRpc {
     cluster = new MiniRouterDFSCluster(false, NUM_SUBCLUSTERS);
     cluster.setNumDatanodesPerNameservice(NUM_DNS);
     cluster.setIndependentDNs();
+    startRouterDFSCluster(cluster, null, null);
+  }
 
+  static void startRouterDFSCluster(MiniRouterDFSCluster miniRouterDFSCluster,
+      Configuration conf, MiniDFSNNTopology topo) throws Exception {
     // Start NNs and DNs and wait until ready
-    cluster.startCluster();
+    miniRouterDFSCluster.startCluster(conf, topo);
 
     // Start routers with only an RPC service
     Configuration routerConf = new RouterConfigBuilder()
@@ -206,12 +211,12 @@ public class TestRouterRpc {
     // We decrease the DN cache times to make the test faster
     routerConf.setTimeDuration(
         RBFConfigKeys.DN_REPORT_CACHE_EXPIRE, 1, TimeUnit.SECONDS);
-    cluster.addRouterOverrides(routerConf);
-    cluster.startRouters();
+    miniRouterDFSCluster.addRouterOverrides(routerConf);
+    miniRouterDFSCluster.startRouters();
 
     // Register and verify all NNs with all routers
-    cluster.registerNamenodes();
-    cluster.waitNamenodeRegistration();
+    miniRouterDFSCluster.registerNamenodes();
+    miniRouterDFSCluster.waitNamenodeRegistration();
   }
 
   @AfterClass

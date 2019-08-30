@@ -197,6 +197,16 @@ public class TestFsVolumeList {
         .setConf(conf)
         .build();
     assertEquals("", 100L, volume4.getReserved());
+    FsVolumeImpl volume5 = new FsVolumeImplBuilder()
+        .setConf(conf)
+        .setDataset(dataset)
+        .setStorageID("storage-id")
+        .setStorageDirectory(
+            new StorageDirectory(StorageLocation.parse(
+                "[PROVIDED]hdfs://10.0.0.1:2000/dirname1/dir2")))
+        .build();
+    assertEquals("Provided volumes should have 0 reserved capacity",
+        0, volume5.getReserved());
   }
 
   @Test
@@ -364,14 +374,14 @@ public class TestFsVolumeList {
     fs.close();
     FsDatasetImpl fsDataset = (FsDatasetImpl) cluster.getDataNodes().get(0)
         .getFSDataset();
-    ReplicaMap volumeMap = new ReplicaMap(new AutoCloseableLock());
+    VolumeReplicaMap volumeMap = new VolumeReplicaMap(new AutoCloseableLock());
     RamDiskReplicaTracker ramDiskReplicaMap = RamDiskReplicaTracker
         .getInstance(conf, fsDataset);
     FsVolumeImpl vol = (FsVolumeImpl) fsDataset.getFsVolumeReferences().get(0);
     String bpid = cluster.getNamesystem().getBlockPoolId();
     // It will create BlockPoolSlice.AddReplicaProcessor task's and lunch in
     // ForkJoinPool recursively
-    vol.getVolumeMap(bpid, volumeMap, ramDiskReplicaMap);
+    volumeMap = vol.getVolumeMap(bpid, volumeMap, ramDiskReplicaMap);
     assertTrue("Failed to add all the replica to map", volumeMap.replicas(bpid)
         .size() == 1000);
     assertTrue("Fork pool size should be " + poolSize,

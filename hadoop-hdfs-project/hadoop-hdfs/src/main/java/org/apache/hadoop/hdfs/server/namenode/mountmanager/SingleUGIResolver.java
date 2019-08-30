@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
 
 import java.io.IOException;
 
@@ -24,6 +24,9 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclStatus;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.UGIResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 
 /**
@@ -47,7 +50,7 @@ public class SingleUGIResolver extends UGIResolver implements Configurable {
   @Override
   public void setConf(Configuration conf) {
     this.conf = conf;
-    uid = conf.getInt(UID, 0);
+    uid = conf.getInt(UID, 1);
     user = conf.get(USER);
     if (null == user) {
       try {
@@ -56,7 +59,7 @@ public class SingleUGIResolver extends UGIResolver implements Configurable {
         user = "hadoop";
       }
     }
-    gid = conf.getInt(GID, 1);
+    gid = conf.getInt(GID, 2);
     group = conf.get(GROUP);
     if (null == group) {
       group = user;
@@ -90,5 +93,38 @@ public class SingleUGIResolver extends UGIResolver implements Configurable {
   @Override
   public void addGroup(String name) {
     // do nothing
+  }
+
+  @Override
+  public String user(AclStatus aclStatus) {
+    return user;
+  }
+
+  @Override
+  public String group(AclStatus aclStatus) {
+    return group;
+  }
+
+  @Override
+  protected AclEntry getLocalAclEntry(AclEntry remoteEntry) {
+    // remote users and groups should be replaced by the configured ones.
+    String name;
+    switch (remoteEntry.getType()) {
+      case USER:
+        name = this.user;
+        break;
+      case GROUP:
+        name = this.group;
+        break;
+      default:
+        name = remoteEntry.getName();
+        break;
+    }
+    return new AclEntry.Builder()
+        .setType(remoteEntry.getType())
+        .setName(name)
+        .setPermission(remoteEntry.getPermission())
+        .setScope(remoteEntry.getScope())
+        .build();
   }
 }

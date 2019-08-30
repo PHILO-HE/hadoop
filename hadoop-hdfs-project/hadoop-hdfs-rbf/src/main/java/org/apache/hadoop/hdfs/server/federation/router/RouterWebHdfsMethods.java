@@ -83,6 +83,7 @@ import org.apache.hadoop.hdfs.web.resources.XAttrEncodingParam;
 import org.apache.hadoop.hdfs.web.resources.XAttrNameParam;
 import org.apache.hadoop.hdfs.web.resources.XAttrSetFlagParam;
 import org.apache.hadoop.hdfs.web.resources.XAttrValueParam;
+import org.apache.hadoop.hdfs.web.resources.*;
 import org.apache.hadoop.ipc.ExternalCall;
 import org.apache.hadoop.ipc.RetriableException;
 import org.apache.hadoop.net.Node;
@@ -209,7 +210,9 @@ public class RouterWebHdfsMethods extends NamenodeWebHdfsMethods {
       final CreateFlagParam createFlagParam,
       final NoRedirectParam noredirectParam,
       final StoragePolicyParam policyName,
-      final ECPolicyParam ecpolicy
+      final ECPolicyParam ecpolicy,
+      final RemotePathParam remote,
+      final RemoteConfigParam remoteConfig
   ) throws IOException, URISyntaxException {
 
     switch(op.getValue()) {
@@ -253,6 +256,8 @@ public class RouterWebHdfsMethods extends NamenodeWebHdfsMethods {
     case ENABLEECPOLICY:
     case DISABLEECPOLICY:
     case SATISFYSTORAGEPOLICY:
+    case ADDMOUNT:
+    case REMOVEMOUNT:
     {
       // Whitelist operations that can handled by NamenodeWebHdfsMethods
       return super.put(ugi, delegation, username, doAsUser, fullpath, op,
@@ -261,7 +266,7 @@ public class RouterWebHdfsMethods extends NamenodeWebHdfsMethods {
           accessTime, renameOptions, createParent, delegationTokenArgument,
           aclPermission, xattrName, xattrValue, xattrSetFlag, snapshotName,
           oldSnapshotName, exclDatanodes, createFlagParam, noredirectParam,
-          policyName, ecpolicy);
+          policyName, ecpolicy, remote, remoteConfig);
     }
     default:
       throw new UnsupportedOperationException(op + " is not supported");

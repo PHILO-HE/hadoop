@@ -598,6 +598,35 @@ public class NamenodeBeanMetrics
     return getProvidedCapacity();
   }
 
+  public long getProvidedCacheCapacityTotal() {
+    try {
+      return getRBFMetrics().getProvidedCacheCapacity();
+    } catch (IOException e) {
+      LOG.debug("Failed to get provided cache capacity total", e.getMessage());
+    }
+    return 0;
+  }
+
+  @Override
+  public long getProvidedCacheUsedTotal() {
+    try {
+      return getRBFMetrics().getProvidedCacheUsed();
+    } catch (IOException e) {
+      LOG.debug("Failed to get provided cache used total", e.getMessage());
+    }
+    return 0;
+  }
+
+  @Override
+  public long getProvidedCacheUsed() {
+    return getProvidedCacheUsedTotal();
+  }
+
+  @Override
+  public long getProvidedCacheCapacity() {
+    return getProvidedCacheCapacityTotal();
+  }
+
   @Override
   public long getFilesTotal() {
     try {

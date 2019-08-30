@@ -24,9 +24,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.UUID;
 
 import com.google.protobuf.ByteString;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.hdfs.DFSUtilClient;
@@ -47,6 +50,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.DatanodeComm
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.DatanodeRegistrationProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.FinalizeCommandProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.KeyUpdateCommandProto;
+import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.ProvidedVolCommandProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.ReceivedDeletedBlockInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos.RegisterCommandProto;
 import org.apache.hadoop.hdfs.protocol.proto.DatanodeProtocolProtos
@@ -60,6 +64,8 @@ import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ExtendedBlockProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ProvidedStorageLocationProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.StorageUuidsProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ProvidedMountConfigProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.ProvidedVolumeInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.DatanodeInfosProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.LocatedBlockProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.StorageTypeProto;
@@ -87,6 +93,7 @@ import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NodeType;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
+import org.apache.hadoop.hdfs.server.common.ProvidedVolumeInfo;
 import org.apache.hadoop.hdfs.server.common.StorageInfo;
 import org.apache.hadoop.hdfs.server.namenode.CheckpointSignature;
 import org.apache.hadoop.hdfs.server.protocol.BalancerBandwidthCommand;
@@ -112,6 +119,7 @@ import org.apache.hadoop.hdfs.server.protocol.NNHAStatusHeartbeat;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeCommand;
 import org.apache.hadoop.hdfs.server.protocol.NamenodeRegistration;
 import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
+import org.apache.hadoop.hdfs.server.protocol.ProvidedVolumeCommand;
 import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo.BlockStatus;
 import org.apache.hadoop.hdfs.server.protocol.RegisterCommand;
@@ -469,6 +477,8 @@ public class PBHelper {
       return PBHelper.convert(proto.getBlkIdCmd());
     case BlockECReconstructionCommand:
       return PBHelper.convert(proto.getBlkECReconstructionCmd());
+    case ProvidedVolCommand:
+      return PBHelper.convert(proto.getProvidedVolCmd());
     default:
       return null;
     }
@@ -548,6 +558,34 @@ public class PBHelper {
     return builder.build();
   }
 
+  private static ProvidedVolCommandProto convert(ProvidedVolumeCommand
+      providedVolumeCommand) {
+    ProvidedVolumeInfo vol = providedVolumeCommand.getProvidedVolume();
+
+    ProvidedVolCommandProto.Builder builder =
+        ProvidedVolCommandProto.newBuilder().setVolumeId(vol.getIdString())
+            .setRemotePath(vol.getRemotePath());
+    Map<String, String> configs = vol.getConfig();
+    if (configs != null) {
+      for (Entry<String, String> config : configs.entrySet()) {
+        ProvidedMountConfigProto configProto =
+            ProvidedMountConfigProto.newBuilder().setKey(config.getKey())
+            .setValue(config.getValue()).build();
+        builder.addConfig(configProto);
+      }
+    }
+    switch (providedVolumeCommand.getAction()) {
+    case DatanodeProtocol.DNA_PROVIDEDVOLADD:
+      builder.setAction(ProvidedVolCommandProto.Action.ADD);
+      break;
+    case DatanodeProtocol.DNA_PROVIDEDVOLREMOVE:
+      builder.setAction(ProvidedVolCommandProto.Action.REMOVE);
+      break;
+    }
+
+    return builder.build();
+  }
+
   private static List<StorageUuidsProto> convert(String[][] targetStorageUuids) {
     StorageUuidsProto[] ret = new StorageUuidsProto[targetStorageUuids.length];
     for (int i = 0; i < targetStorageUuids.length; i++) {
@@ -602,6 +640,12 @@ public class PBHelper {
       builder.setCmdType(DatanodeCommandProto.Type.BlockECReconstructionCommand)
           .setBlkECReconstructionCmd(
               convert((BlockECReconstructionCommand) datanodeCommand));
+      break;
+    case DatanodeProtocol.DNA_PROVIDEDVOLADD:
+    case DatanodeProtocol.DNA_PROVIDEDVOLREMOVE:
+      builder.setCmdType(DatanodeCommandProto.Type.ProvidedVolCommand).
+          setProvidedVolCmd(
+              PBHelper.convert((ProvidedVolumeCommand) datanodeCommand));
       break;
     case DatanodeProtocol.DNA_UNKNOWN: //Not expected
     default:
@@ -699,6 +743,33 @@ public class PBHelper {
       throw new AssertionError("Unknown action type: " + blkIdCmd.getAction());
     }
     return new BlockIdCommand(action, blkIdCmd.getBlockPoolId(), blockIds);
+  }
+
+  public static ProvidedVolumeCommand convert(ProvidedVolCommandProto
+      volCommandProto) {
+    UUID id = UUID.fromString(volCommandProto.getVolumeId());
+    List<ProvidedMountConfigProto> configList = volCommandProto.getConfigList();
+    Map<String, String> configMap = new HashMap<>();
+    if (configList != null) {
+      for (ProvidedMountConfigProto config : configList) {
+        configMap.put(config.getKey(), config.getValue());
+      }
+    }
+    String remote = volCommandProto.getRemotePath();
+    ProvidedVolumeInfo volInfo
+        = new ProvidedVolumeInfo(id, null, remote, configMap);
+
+    ProvidedVolumeCommand cmd = null;
+    switch (volCommandProto.getAction()) {
+    case ADD:
+      cmd = ProvidedVolumeCommand.buildAddCmd(volInfo);
+      break;
+    case REMOVE:
+      cmd = ProvidedVolumeCommand.buildRemoveCmd(volInfo);
+      break;
+    }
+
+    return cmd;
   }
 
   public static BalancerBandwidthCommand convert(
@@ -1125,7 +1196,38 @@ public class PBHelper {
         PBHelperClient.convert(blockProto);
     ProvidedStorageLocation providedStorageLocation =
         PBHelperClient.convert(providedStorageLocationProto);
-
+    if (providedStorageLocation == null)
+      return null;
     return new FileRegion(block, providedStorageLocation);
+  }
+
+  public static ProvidedVolumeInfoProto convert(ProvidedVolumeInfo mountInfo) {
+    ProvidedVolumeInfoProto.Builder builder =
+        ProvidedVolumeInfoProto.newBuilder();
+    builder.setMountPath(mountInfo.getMountPath());
+    builder.setRemotePath(mountInfo.getRemotePath());
+    builder.setUuid(mountInfo.getId().toString());
+    Map<String, String> configs = mountInfo.getConfig();
+    if (configs != null) {
+      for (Entry<String, String> config : configs.entrySet()) {
+        ProvidedMountConfigProto configProto =
+            ProvidedMountConfigProto.newBuilder().setKey(config.getKey())
+                .setValue(config.getValue()).build();
+        builder.addConfig(configProto);
+      }
+    }
+    return builder.build();
+  }
+
+  public static ProvidedVolumeInfo convert(ProvidedVolumeInfoProto proto) {
+    List<ProvidedMountConfigProto> configList = proto.getConfigList();
+    Map<String, String> configMap = new HashMap<>();
+    if (configList != null) {
+      for (ProvidedMountConfigProto config : configList) {
+        configMap.put(config.getKey(), config.getValue());
+      }
+    }
+    return new ProvidedVolumeInfo(UUID.fromString(proto.getUuid()),
+        proto.getMountPath(), proto.getRemotePath(), configMap);
   }
 }

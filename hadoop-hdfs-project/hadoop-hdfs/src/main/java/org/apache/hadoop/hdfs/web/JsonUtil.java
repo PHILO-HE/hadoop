@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.MD5MD5CRC32FileChecksum;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.QuotaUsage;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.XAttr;
@@ -309,6 +310,29 @@ public class JsonUtil {
     }
 
     return fileStatuses;
+  }
+
+  /** Convert a MountInfo List to a Json array. */
+  public static String toMountInfosJson(final List<MountInfo> points)
+      throws IOException {
+    Object value;
+    if (points == null) {
+      value = null;
+    } else if (points.size() == 0) {
+      value = EMPTY_OBJECT_ARRAY;
+    } else {
+      final List<Object> objects = new ArrayList<>();
+      for (MountInfo point : points) {
+        final Map<String, Object> m = new TreeMap<String, Object>();
+        m.put("mountPath", point.getMountPath());
+        m.put("remotePath", point.getRemotePath());
+        m.put("mountStatus", point.getMountStatus());
+        objects.add(m);
+      }
+      value = objects.toArray();
+    }
+
+    return toJsonString("Mounts", value);
   }
 
   /** Convert a LocatedBlock[] to a Json array. */

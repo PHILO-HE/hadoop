@@ -30,6 +30,9 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.RollingUpgradeStatus;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
+import org.apache.hadoop.hdfs.server.common.ProvidedVolumeInfo;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi.FsVolumeReferences;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.protocol.*;
 import org.apache.hadoop.hdfs.server.protocol.BlockECReconstructionCommand.BlockECReconstructionInfo;
 import org.apache.hadoop.hdfs.server.protocol.ReceivedDeletedBlockInfo.BlockStatus;
@@ -777,6 +780,17 @@ class BPOfferService {
             getBlockPoolId(), 
             ((KeyUpdateCommand) cmd).getExportedKeys());
       }
+      break;
+    case DatanodeProtocol.DNA_PROVIDEDVOLADD:
+      LOG.info("DatanodeCommand action: DNA_PROVIDEDVOLADD");
+      ProvidedVolumeInfo providedVol =
+          ((ProvidedVolumeCommand) cmd).getProvidedVolume();
+      dn.getFSDataset().addProvidedVol(providedVol, getNamespaceInfo());
+      break;
+    case DatanodeProtocol.DNA_PROVIDEDVOLREMOVE:
+      LOG.info("DatanodeCommand action: DNA_PROVIDEDVOLREMOVE");
+      providedVol = ((ProvidedVolumeCommand) cmd).getProvidedVolume();
+      dn.getFSDataset().removeProvidedVol(providedVol);
       break;
     case DatanodeProtocol.DNA_BALANCERBANDWIDTHUPDATE:
       LOG.info("DatanodeCommand action: DNA_BALANCERBANDWIDTHUPDATE");

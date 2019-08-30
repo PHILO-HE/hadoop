@@ -630,7 +630,6 @@ message RollingUpgradeStatusProto {
   optional bool finalized = 2 [default = false];
 }
 
-
 /**
  * A list of storage IDs.
  */
@@ -672,4 +671,16 @@ message BlockTokenSecretProto {
   repeated StorageTypeProto storageTypes = 7;
   repeated string storageIds = 8;
   optional bytes handshakeSecret = 9;
+}
+
+message ProvidedMountConfigProto {
+  required string key = 1;
+  required string value = 2;
+}
+
+message ProvidedVolumeInfoProto {
+  required string uuid = 1;
+  required string mountPath = 2;
+  required string remotePath = 3;
+  repeated ProvidedMountConfigProto config = 4;
 }

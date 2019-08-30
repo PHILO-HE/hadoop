@@ -24,6 +24,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.SingleUGIResolver;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.UGIResolver;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import org.junit.Before;

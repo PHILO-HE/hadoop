@@ -28,6 +28,10 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicyDefault
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicyRackFaultTolerant;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.RamDiskReplicaLruTracker;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.ReservedSpaceCalculator;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.BlockResolver;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.FixedBlockResolver;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.SingleUGIResolver;
+import org.apache.hadoop.hdfs.server.namenode.mountmanager.UGIResolver;
 import org.apache.hadoop.hdfs.web.URLConnectionFactory;
 import org.apache.hadoop.http.HttpConfig;
 
@@ -106,6 +110,29 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_PROVIDED_ALIASMAP_INMEMORY_ENABLED_DEFAULT = false;
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_LOG = "dfs.provided.aliasmap.inmemory.server.log";
   public static final boolean DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_LOG_DEFAULT = false;
+
+  public static final String DFS_PROVIDED_CACHE_MANAGER_FACTORY = "dfs.provided.cache.manager.factory";
+  public static final String DFS_PROVIDED_CACHE_MANAGER_FACTORY_DEFAULT = "org.apache.hadoop.hdfs.server.namenode.mountmanager.BlockCacheManagerFactory";
+
+  public static final String DFS_PROVIDED_CACHE_CAPACITY_FRACTION = "dfs.provided.cache.capacity.fraction";
+  public static final double DFS_PROVIDED_CACHE_CAPACITY_FRACTION_DEFAULT  = 0.01;
+
+  public static final String DFS_PROVIDED_CACHE_CAPACITY_BYTES = "dfs.provided.cache.capacity.bytes";
+  public static final long DFS_PROVIDED_CACHE_CAPACITY_BYTES_DEFAULT  = -1;
+
+  public static final String DFS_PROVIDED_CACHE_CAPACITY_THRESHOLD = "dfs.provided.cache.capacity.threshold";
+  public static final double DFS_PROVIDED_CACHE_CAPACITY_THRESHOLD_DEFAULT  = 0.90;
+
+  public static final String DFS_PROVIDED_CACHE_SCAN_INTERVAL_MS = "dfs.provided.cache.scan.interval.millis";
+  public static final long DFS_PROVIDED_CACHE_SCAN_INTERVAL_MS_DEFAULT  = 1000;
+
+  public static final String DFS_PROVIDED_CACHE_CAPACITY_SET_PER_MOUNT = "dfs.provided.cache.capacity.mount";
+  public static final boolean DFS_PROVIDED_CACHE_CAPACITY_SET_PER_MOUNT_DEFAULT = false;
+
+  public static final String DFS_DATANODE_PROVIDED_VOLUME_CHOOSING_POLICY = "dfs.datanode.provided.volume.choosing.policy";
+  public static final String DFS_DATANODE_PROVIDED_READTHROUGH_THREADS_MAX = "dfs.datanode.provided.readthrough.threads.max";
+  public static final int DFS_DATANODE_PROVIDED_READTHROUGH_THREADS_MAX_DEFAULT = 20;
+  public static final String DFS_DATANODE_PROVIDED_CACHE_TASK_CLASS = "dfs.datanode.provided.cache.task.class";
 
   public static final String  DFS_DATANODE_BALANCE_BANDWIDTHPERSEC_KEY =
       HdfsClientConfigKeys.DeprecatedKeys.DFS_DATANODE_BALANCE_BANDWIDTHPERSEC_KEY;
@@ -352,6 +379,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       "dfs.namenode.edits.asynclogging";
   public static final boolean DFS_NAMENODE_EDITS_ASYNC_LOGGING_DEFAULT = true;
 
+  public static final String DFS_DATANODE_PROVIDED_ENABLED = "dfs.datanode.provided.enabled";
+  public static final boolean DFS_DATANODE_PROVIDED_ENABLED_DEFAULT = false;
+
   public static final String DFS_NAMENODE_PROVIDED_ENABLED = "dfs.namenode.provided.enabled";
   public static final boolean DFS_NAMENODE_PROVIDED_ENABLED_DEFAULT = false;
 
@@ -371,6 +401,46 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_PROVIDED_ALIASMAP_TEXT_WRITE_DIR_DEFAULT = "file:///tmp/";
 
   public static final String DFS_PROVIDED_ALIASMAP_LEVELDB_PATH = "dfs.provided.aliasmap.leveldb.path";
+
+  public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_HANDLER_COUNT_KEY = "dfs.provided.aliasmap.inmemory.handler.count";
+  public static final int DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_HANDLER_COUNT_DEFAULT = 10;
+
+  public static final String DFS_PROVIDED_OVERREPLICATION_FACTOR_KEY = "dfs.provided.overreplication.factor";
+  public static final short DFS_PROVIDED_OVERREPLICATION_FACTOR_DEFAULT = 0;
+
+  public static final String DFS_DATANODE_PROVIDED_VOLUME_LAZY_LOAD = "dfs.datanode.provided.volume.lazy.load";
+  public static final boolean DFS_DATANODE_PROVIDED_VOLUME_LAZY_LOAD_DEFAULT = false;
+
+  public static final String DFS_PROVIDED_REPLICAMAP_CACHE_SIZE = "dfs.provided.replicamap.cache.size";
+  public static final long DFS_PROVIDED_REPLICAMAP_CACHE_SIZE_DEFAULT = 10000;
+  public static final String DFS_PROVIDED_REPLICAMAP_CACHE_ENABLE_STATS = "dfs.provided.replicamap.cache.enable.stats";
+  public static final boolean DFS_PROVIDED_REPLICAMAP_CACHE_ENABLE_STATS_DEFAULT = false;
+
+  public static final String DFS_IMAGE_WRITER_UGI_CLASS = "hdfs.image.writer.ugi.class";
+  public static final Class<? extends UGIResolver> DFS_IMAGE_WRITER_UGI_CLASS_DEFAULT = SingleUGIResolver.class;
+  public static final String DFS_IMAGE_WRITER_BLOCK_RESOLVER_CLASS = "hdfs.image.writer.blockresolver.class";
+  public static final Class<? extends BlockResolver> DFS_IMAGE_WRITER_BLOCK_RESOLVER_CLASS_DEFAULT = FixedBlockResolver.class;
+
+  public static final String DFS_OVERREPLICATION_FACTOR_KEY = "dfs.overreplication.factor";
+  public static final short DFS_OVERREPLICATION_FACTOR_DEFAULT = 0;
+
+  public static final String DFS_NAMENODE_MOUNT_LOCK_DURATION_MAX = "dfs.namenode.mount.lock.duration";
+  public static final long DFS_NAMENODE_MOUNT_LOCK_DURATION_MAX_DEFAULT = TimeUnit.SECONDS.toMillis(1);
+
+  public static final String DFS_NAMENODE_MOUNT_INODES_MAX = "dfs.namenode.mount.inodes.max";
+  public static final int DFS_NAMENODE_MOUNT_INODES_MAX_DEFAULT = -1;
+
+  public static final String DFS_NAMENODE_MOUNT_NUM_MAX = "dfs.namenode.mount.num";
+  public static final int DFS_NAMENODE_MOUNT_NUM_MAX_DEFAULT = -1;
+
+  public static final String DFS_NAMENODE_MOUNT_TMP_DIR = "dfs.namenode.mount.tmp.dir";
+  public static final String DFS_NAMENODE_MOUNT_TMP_DIR_DEFAULT = "/_temporary/_mounts/";
+
+  public static final String DFS_NAMENODE_MOUNT_ACLS_ENABLED = "dfs.namenode.mount.acls.enabled";
+  public static final boolean DFS_NAMENODE_MOUNT_ACLS_ENABLED_DEFAULT = false;
+
+  public static final String DFS_DATANODE_PROVIDED_VOLUME_READ_THROUGH = "dfs.datanode.provided.volume.readthrough";
+  public static final boolean DFS_DATANODE_PROVIDED_VOLUME_READ_THROUGH_DEFAULT = false;
 
   public static final String  DFS_LIST_LIMIT = "dfs.ls.limit";
   public static final int     DFS_LIST_LIMIT_DEFAULT = 1000;

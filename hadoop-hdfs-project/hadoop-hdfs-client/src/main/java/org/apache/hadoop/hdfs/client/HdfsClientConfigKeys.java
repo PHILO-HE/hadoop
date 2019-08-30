@@ -103,6 +103,7 @@ public interface HdfsClientConfigKeys {
   String  DFS_CLIENT_CACHE_READAHEAD = "dfs.client.cache.readahead";
   String  DFS_CLIENT_CACHED_CONN_RETRY_KEY = "dfs.client.cached.conn.retry";
   int     DFS_CLIENT_CACHED_CONN_RETRY_DEFAULT = 3;
+  String  DFS_CLIENT_CACHE_READTHROUGH = "dfs.client.cache.readthrough";
   String  DFS_CLIENT_CONTEXT = "dfs.client.context";
   String  DFS_CLIENT_CONTEXT_DEFAULT = "default";
   String  DFS_CLIENT_USE_LEGACY_BLOCKREADERLOCAL =
@@ -193,7 +194,7 @@ public interface HdfsClientConfigKeys {
   boolean DFS_NAMENODE_SNAPSHOT_CAPTURE_OPENFILES_DEFAULT = false;
 
   String DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS =
-      "dfs.provided.aliasmap.inmemory.dnrpc-address";
+      "dfs.provided.aliasmap.inmemory.rpc.address";
 
   /**
    * These are deprecated config keys to client code.

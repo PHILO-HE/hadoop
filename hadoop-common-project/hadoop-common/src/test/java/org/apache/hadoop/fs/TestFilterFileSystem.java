@@ -27,6 +27,8 @@ import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
@@ -136,6 +138,10 @@ public class TestFilterFileSystem {
     public ContentSummary getContentSummary(Path f);
     public QuotaUsage getQuotaUsage(Path f);
     StorageStatistics getStorageStatistics();
+    public boolean addMount(String remote, String mount,
+        Map<String, String> remoteConfig) throws IOException;
+    public boolean removeMount(String mountPath) throws IOException;
+    public List<MountInfo> listMounts() throws IOException;
   }
 
   @Test

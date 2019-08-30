@@ -51,6 +51,7 @@ import org.apache.hadoop.fs.ContentSummary;
 import org.apache.hadoop.fs.CreateFlag;
 import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FsServerDefaults;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.QuotaUsage;
 import org.apache.hadoop.fs.StorageType;
@@ -1650,6 +1651,23 @@ public class RouterRpcServer extends AbstractService implements ClientProtocol,
    */
   public FederationRPCMetrics getRPCMetrics() {
     return this.rpcMonitor.getRPCMetrics();
+  }
+
+  @Override
+  public boolean addMount(String remotePath, String mountPoint,
+      Map<String, String> config) throws IOException {
+    return clientProto.addMount(remotePath, mountPoint, config);
+  }
+
+  @Override
+  public List<MountInfo> listMounts() throws IOException {
+    return clientProto.listMounts();
+  }
+
+  @Override // ClientProtocol
+  public boolean removeMount(String mountPath)
+      throws IOException {
+    return clientProto.removeMount(mountPath);
   }
 
   /**

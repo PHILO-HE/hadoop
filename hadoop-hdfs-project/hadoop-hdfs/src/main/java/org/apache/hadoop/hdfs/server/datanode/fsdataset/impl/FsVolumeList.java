@@ -199,7 +199,9 @@ class FsVolumeList {
             FsDatasetImpl.LOG.info("Adding replicas to map for block pool " +
                 bpid + " on volume " + v + "...");
             long startTime = Time.monotonicNow();
-            v.getVolumeMap(bpid, volumeMap, ramDiskReplicaMap);
+            VolumeReplicaMap replicaMap =
+                v.getVolumeMap(bpid, v, ramDiskReplicaMap);
+            volumeMap.addAll(v, replicaMap);
             long timeTaken = Time.monotonicNow() - startTime;
             FsDatasetImpl.LOG.info("Time to add replicas to map for block pool"
                 + " " + bpid + " on volume " + v + ": " + timeTaken + "ms");
@@ -291,7 +293,8 @@ class FsVolumeList {
   void addVolume(FsVolumeReference ref) {
     FsVolumeImpl volume = (FsVolumeImpl) ref.getVolume();
     volumes.add(volume);
-    if (blockScanner != null) {
+    if (blockScanner != null
+        && ref.getVolume().getStorageType() != StorageType.PROVIDED) {
       blockScanner.addVolumeScanner(ref);
     } else {
       // If the volume is not put into a volume scanner, it does not need to

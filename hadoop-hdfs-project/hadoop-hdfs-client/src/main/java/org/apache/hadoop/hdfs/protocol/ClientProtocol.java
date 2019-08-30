@@ -26,6 +26,8 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
 import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedEntries;
+import org.apache.hadoop.fs.FileAlreadyExistsException;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.PathIsNotEmptyDirectoryException;
 import org.apache.hadoop.ha.HAServiceProtocol;
 import org.apache.hadoop.hdfs.AddBlockFlag;
@@ -1826,4 +1828,40 @@ public interface ClientProtocol {
    */
   @AtMostOnce
   void satisfyStoragePolicy(String path) throws IOException;
+
+  /**
+   * Mount an external path in the Namenode.
+   * For example, to mount the path hdfs://remoteNN:50070/users/alice/datasets/
+   * under /external/alice/, call
+   * addMount("hdfs://remoteNN:50070/users/alice/datasets/", "/external/alice/")
+   *
+   * @param remotePath external path to mount.
+   * @param mountPath mount point in the Namenode.
+   * @param config config needed to connect to remote fs
+   * @return true if the creation of the mount succeeds.
+   * @throws FileAlreadyExistsException if {@code mountPath} already exists.
+   * @throws IOException on any other error, while adding the mount point.
+   */
+  @AtMostOnce
+  boolean addMount(String remotePath, String mountPath,
+      Map<String, String> config) throws FileAlreadyExistsException,
+      IOException;
+
+  /**
+   * Provide a list of all the mount points in the cluster. See
+   * {@link ClientProtocol#addMount}.
+   * @return All mount points / mount paths in the cluster.
+   * @throws IOException
+   */
+  @Idempotent
+  List<MountInfo> listMounts() throws IOException;
+
+  /**
+   * Remove an existing mount point. See {@link ClientProtocol#addMount}.
+   * @param mountPath
+   * @return true if the operation is successful.
+   * @throws IOException
+   */
+  @AtMostOnce
+  boolean removeMount(String mountPath) throws IOException;
 }

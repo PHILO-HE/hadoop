@@ -30,6 +30,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_HTTP_POLICY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_JOURNALNODE_HTTPS_ADDRESS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KERBEROS_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_KEYTAB_FILE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_BIND_HOST;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_SERVER_HTTPS_KEYSTORE_RESOURCE_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_WEB_AUTHENTICATION_KERBEROS_PRINCIPAL_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DATA_TRANSFER_PROTECTION_KEY;
@@ -69,6 +71,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -109,6 +112,8 @@ import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
 import org.apache.hadoop.hdfs.server.common.Storage;
 import org.apache.hadoop.hdfs.server.common.Util;
+import org.apache.hadoop.hdfs.server.common.blockaliasmap.BlockAliasMap;
+import org.apache.hadoop.hdfs.server.common.blockaliasmap.impl.InMemoryLevelDBAliasMapClient;
 import org.apache.hadoop.hdfs.server.datanode.DataNode;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.datanode.DataStorage;
@@ -207,7 +212,7 @@ public class MiniDFSCluster implements AutoCloseable {
     private String clusterId = null;
     private boolean waitSafeMode = true;
     private boolean setupHostsFile = false;
-    private MiniDFSNNTopology nnTopology = null;
+    public MiniDFSNNTopology nnTopology = null;
     private boolean checkExitOnShutdown = true;
     private boolean checkDataNodeAddrConfig = false;
     private boolean checkDataNodeHostConfig = false;
@@ -493,7 +498,9 @@ public class MiniDFSCluster implements AutoCloseable {
       return new MiniDFSCluster(this);
     }
   }
-  
+
+  protected MiniDFSNNTopology topology;
+
   /**
    * Used by builder to create and return an instance of MiniDFSCluster
    */
@@ -503,6 +510,7 @@ public class MiniDFSCluster implements AutoCloseable {
       builder.nnTopology = MiniDFSNNTopology.simpleSingleNN(
           builder.nameNodePort, builder.nameNodeHttpPort);
     }
+    this.topology = builder.nnTopology;
     assert builder.storageTypes == null ||
            builder.storageTypes.length == builder.numDataNodes;
     final int numNameNodes = builder.nnTopology.countNameNodes();
@@ -1318,8 +1326,9 @@ public class MiniDFSCluster implements AutoCloseable {
     return args;
   }
 
-  private void createNameNode(Configuration hdfsConf, boolean format, StartupOption operation,
-      String clusterId, String nameserviceId, String nnId) throws IOException {
+  protected void createNameNode(Configuration hdfsConf, boolean format,
+      StartupOption operation, String clusterId, String nameserviceId,
+      String nnId) throws IOException {
     // Format and clean out DataNode directories
     if (format) {
       DFSTestUtil.formatNameNode(hdfsConf);
@@ -3350,13 +3359,50 @@ public class MiniDFSCluster implements AutoCloseable {
   }
 
   /**
+   * Find a free port that hasn't been assigned yet.
+   *
+   * @param usedPorts set of ports that have already been assigned.
+   * @param maxTrials maximum number of random ports to try before failure.
+   * @return an unassigned port.
+   */
+  private static int getUnAssignedPort(Set<Integer> usedPorts, int maxTrials) {
+    if (usedPorts == null || usedPorts.size() == 0) {
+      return NetUtils.getFreeSocketPort();
+    }
+    int count = 0;
+    while (count < maxTrials) {
+      int port = NetUtils.getFreeSocketPort();
+      if (usedPorts.contains(port)) {
+        count++;
+      } else {
+        return port;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Setup the namenode-level PROVIDED configurations, using the
+   * {@link InMemoryLevelDBAliasMapClient}. This is same as
+   * {@link setupNamenodeProvidedConfiguration(conf, null)}.
+   *
+   * @param conf Configuration, which is modified, to enable provided storage.
+   *        This cannot be null.
+   */
+  public static void setupNamenodeProvidedConfiguration(Configuration conf) {
+    setupNamenodeProvidedConfiguration(conf, null);
+  }
+
+  /**
    * Setup the namenode-level PROVIDED configurations, using the
    * {@link InMemoryLevelDBAliasMapClient}.
    *
    * @param conf Configuration, which is modified, to enable provided storage.
    *        This cannot be null.
    */
-  public static void setupNamenodeProvidedConfiguration(Configuration conf) {
+  public static void setupNamenodeProvidedConfiguration(
+      Configuration conf,
+      MiniDFSNNTopology topology) {
     conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_PROVIDED_ENABLED, true);
     conf.setBoolean(DFSConfigKeys.DFS_PROVIDED_ALIASMAP_INMEMORY_ENABLED, true);
     conf.setClass(DFSConfigKeys.DFS_PROVIDED_ALIASMAP_CLASS,
@@ -3368,6 +3414,52 @@ public class MiniDFSCluster implements AutoCloseable {
     conf.setInt(DFSConfigKeys.DFS_PROVIDED_ALIASMAP_LOAD_RETRIES, 10);
     conf.set(DFSConfigKeys.DFS_PROVIDED_ALIASMAP_LEVELDB_PATH,
         tempDirectory.getAbsolutePath());
+  }
+
+
+  /**
+   * Setup the configuration for in-memory aliasmaps with the topology.
+   *
+   * @param topology topology of cluster to setup.
+   * @param conf the Configuration. This is modified to setup the aliasmap.
+   * @param providedNameservice nameservice that is configured to support
+   *        provided. A null or empty string implies all nameservices
+   *        support Provided.
+   */
+  public static void configureInMemoryAliasMapAddresses(MiniDFSNNTopology topology,
+      Configuration conf, String providedNameservice) {
+    String localHost = "127.0.0.1";
+    String bindHost = "0.0.0.0";
+    // if topo is null, configure for a single NN cluster.
+    if (topology == null || topology.countNameNodes() == 1) {
+      conf.set(DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS,
+          localHost + ":"+ getUnAssignedPort(null, 0));
+      conf.set(DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_BIND_HOST, bindHost);
+      return;
+    }
+    conf.unset(DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS);
+    Set<Integer> assignedPorts = new HashSet<>();
+    for (MiniDFSNNTopology.NSConf nsConf : topology.getNameservices()) {
+      for (MiniDFSNNTopology.NNConf nnConf : nsConf.getNNs()) {
+        if (providedNameservice == null || providedNameservice.length() == 0 ||
+            providedNameservice.equals(nsConf.getId())) {
+          String key =
+              DFSUtil.addKeySuffixes(DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS,
+                  nsConf.getId(), nnConf.getNnId());
+          int port = getUnAssignedPort(assignedPorts, 10);
+          if (port == -1) {
+            throw new RuntimeException("No free ports available");
+          }
+          assignedPorts.add(port);
+          conf.set(key, localHost + ":" + port);
+          String binHostKey =
+              DFSUtil.addKeySuffixes(
+                  DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_BIND_HOST,
+                  nsConf.getId(), nnConf.getNnId());
+          conf.set(binHostKey, bindHost);
+        }
+      }
+    }
   }
 
   /**

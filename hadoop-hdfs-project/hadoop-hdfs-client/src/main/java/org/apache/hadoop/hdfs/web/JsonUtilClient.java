@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.FsServerDefaults;
 import org.apache.hadoop.fs.MD5MD5CRC32CastagnoliFileChecksum;
 import org.apache.hadoop.fs.MD5MD5CRC32FileChecksum;
 import org.apache.hadoop.fs.MD5MD5CRC32GzipFileChecksum;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.fs.QuotaUsage;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.XAttrCodec;
@@ -227,6 +228,24 @@ public class JsonUtilClient {
     Preconditions.checkState(remainingEntries != -1,
         "remainingEntries was not set");
     return new DirectoryListing(fileStatuses, remainingEntries);
+  }
+
+  static List<MountInfo> toMountInfos(final Map<?, ?> json) {
+    if (json == null) {
+      return null;
+    }
+
+    List<MountInfo> mountInfos = new ArrayList<>();
+    List<?> listing = getList(json, "Mounts");
+    for (Object o : listing) {
+      Map<?, ?> m = (Map<?, ?>) o;
+      String mountPath = (String) m.get("mountPath");
+      String remotePath = (String) m.get("remotePath");
+      MountInfo.MountStatus status =
+          MountInfo.parseMountStatus((String) m.get("mountStatus"));
+      mountInfos.add(new MountInfo(mountPath, remotePath, status));
+    }
+    return mountInfos;
   }
 
   /** Convert a Json map to an ExtendedBlock object. */

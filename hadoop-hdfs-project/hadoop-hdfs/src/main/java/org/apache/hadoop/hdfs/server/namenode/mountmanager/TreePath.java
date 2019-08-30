@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.namenode.mountmanager;
 
 import java.io.IOException;
 
@@ -27,10 +27,19 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Options;
 import org.apache.hadoop.fs.PathHandle;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.AclEntry;
+import org.apache.hadoop.fs.permission.AclEntryType;
+import org.apache.hadoop.fs.permission.AclStatus;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.common.blockaliasmap.BlockAliasMap;
+import org.apache.hadoop.hdfs.server.namenode.AclEntryStatusFormat;
+import org.apache.hadoop.hdfs.server.namenode.AclFeature;
+import org.apache.hadoop.hdfs.server.namenode.FSImageFormatPBINode;
+import org.apache.hadoop.hdfs.server.namenode.FSImageFormatProtobuf;
+import org.apache.hadoop.hdfs.server.namenode.FsImageProto;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.INode;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.INodeDirectory;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.INodeFile;
@@ -39,6 +48,10 @@ import static org.apache.hadoop.hdfs.DFSUtil.LOG;
 import static org.apache.hadoop.hdfs.DFSUtil.string2Bytes;
 import static org.apache.hadoop.hdfs.server.namenode.DirectoryWithQuotaFeature.DEFAULT_NAMESPACE_QUOTA;
 import static org.apache.hadoop.hdfs.server.namenode.DirectoryWithQuotaFeature.DEFAULT_STORAGE_SPACE_QUOTA;
+import static org.apache.hadoop.hdfs.server.namenode.FSImageFormatPBINode.ACL_ENTRY_NAME_MASK;
+import static org.apache.hadoop.hdfs.server.namenode.FSImageFormatPBINode.ACL_ENTRY_NAME_OFFSET;
+import static org.apache.hadoop.hdfs.server.namenode.FSImageFormatPBINode.ACL_ENTRY_SCOPE_OFFSET;
+import static org.apache.hadoop.hdfs.server.namenode.FSImageFormatPBINode.ACL_ENTRY_TYPE_OFFSET;
 
 /**
  * Traversal cursor in external filesystem.
@@ -52,21 +65,59 @@ public class TreePath {
   private final FileStatus stat;
   private final TreeWalk.TreeIterator i;
   private final FileSystem fs;
+  private final Path localMountPath;
+  private final Path remoteRoot;
+  private final AclStatus acls;
+  private final String storagePolicyName;
 
-  protected TreePath(FileStatus stat, long parentId, TreeWalk.TreeIterator i,
-      FileSystem fs) {
+  public TreePath(FileStatus stat, long parentId, TreeWalk.TreeIterator i) {
+    this(stat, parentId, i, null, null, null, null);
+  }
+
+  public TreePath(FileStatus stat, long parentId, TreeWalk.TreeIterator i,
+    FileSystem fs, Path localMountPath, Path remoteRoot, AclStatus acls) {
+    this(stat, parentId, i, fs, localMountPath, remoteRoot, acls, null);
+  }
+
+  public TreePath(FileStatus stat, long parentId, TreeWalk.TreeIterator i,
+      FileSystem fs, Path localMountPath, Path remoteRoot, AclStatus acls,
+      String storagePolicyName) {
     this.i = i;
     this.stat = stat;
     this.parentId = parentId;
     this.fs = fs;
+    this.localMountPath = localMountPath;
+    this.remoteRoot = remoteRoot;
+    this.acls = acls;
+    this.storagePolicyName = storagePolicyName;
   }
 
   public FileStatus getFileStatus() {
     return stat;
   }
 
+  public AclStatus getAclStatus() {
+    return acls;
+  }
+
   public long getParentId() {
     return parentId;
+  }
+
+  public TreeWalk.TreeIterator getIterator() {
+    return i;
+  }
+
+  public Path getLocalMountPath() {
+    return localMountPath;
+  }
+
+  public Path getRemoteRoot() {
+    return remoteRoot;
+  }
+
+  public String getStoragePolicyName() {
+    return storagePolicyName;
   }
 
   public long getId() {
@@ -76,7 +127,7 @@ public class TreePath {
     return id;
   }
 
-  void accept(long id) {
+  public void accept(long id) {
     this.id = id;
     i.onAccept(this, id);
   }
@@ -121,14 +172,14 @@ public class TreePath {
   INode toFile(UGIResolver ugi, BlockResolver blk,
       BlockAliasMap.Writer<FileRegion> out) throws IOException {
     final FileStatus s = getFileStatus();
-    ugi.addUser(s.getOwner());
-    ugi.addGroup(s.getGroup());
+    final AclStatus aclStatus = getAclStatus();
+    long permissions = ugi.getPermissionsProto(s, aclStatus);
     INodeFile.Builder b = INodeFile.newBuilder()
         .setReplication(blk.getReplication(s))
         .setModificationTime(s.getModificationTime())
         .setAccessTime(s.getAccessTime())
         .setPreferredBlockSize(blk.preferredBlockSize(s))
-        .setPermission(ugi.resolve(s))
+        .setPermission(permissions)
         .setStoragePolicyID(HdfsConstants.PROVIDED_STORAGE_POLICY_ID);
 
     // pathhandle allows match as long as the file matches exactly.
@@ -141,7 +192,11 @@ public class TreePath {
             "Exact path handle not supported by filesystem " + fs.toString());
       }
     }
-    // TODO: storage policy should be configurable per path; use BlockResolver
+    if (aclStatus != null) {
+      throw new UnsupportedOperationException(
+          "Acls not supported by ImageWriter");
+    }
+    //TODO: storage policy should be configurable per path; use BlockResolver
     long off = 0L;
     for (BlockProto block : blk.resolve(s)) {
       b.addBlocks(block);
@@ -159,13 +214,17 @@ public class TreePath {
 
   INode toDirectory(UGIResolver ugi) {
     final FileStatus s = getFileStatus();
-    ugi.addUser(s.getOwner());
-    ugi.addGroup(s.getGroup());
+    final AclStatus aclStatus = getAclStatus();
+    long permissions = ugi.getPermissionsProto(s, aclStatus);
     INodeDirectory.Builder b = INodeDirectory.newBuilder()
         .setModificationTime(s.getModificationTime())
         .setNsQuota(DEFAULT_NAMESPACE_QUOTA)
         .setDsQuota(DEFAULT_STORAGE_SPACE_QUOTA)
-        .setPermission(ugi.resolve(s));
+        .setPermission(permissions);
+    if (aclStatus != null) {
+      throw new UnsupportedOperationException(
+          "Acls not supported by ImageWriter");
+    }
     INode.Builder ib = INode.newBuilder()
         .setType(INode.Type.DIRECTORY)
         .setId(id)

@@ -408,10 +408,8 @@ class BlockPoolSlice {
   }
 
 
-
-  void getVolumeMap(ReplicaMap volumeMap,
-                    final RamDiskReplicaTracker lazyWriteReplicaMap)
-      throws IOException {
+  void getVolumeMap(VolumeReplicaMap volumeMap,
+      final RamDiskReplicaTracker lazyWriteReplicaMap) throws IOException {
     // Recover lazy persist replicas, they will be added to the volumeMap
     // when we scan the finalized directory.
     if (lazypersistDir.exists()) {
@@ -557,7 +555,7 @@ class BlockPoolSlice {
     return numRecovered;
   }
 
-  private void addReplicaToReplicasMap(Block block, ReplicaMap volumeMap,
+  private void addReplicaToReplicasMap(Block block, VolumeReplicaMap volumeMap,
       final RamDiskReplicaTracker lazyWriteReplicaMap,boolean isFinalized)
       throws IOException {
     ReplicaInfo newReplica = null;
@@ -654,7 +652,7 @@ class BlockPoolSlice {
    * @param exceptions list of exception which need to return to parent thread.
    * @param subTaskQueue queue of sub tasks
    */
-  void addToReplicasMap(ReplicaMap volumeMap, File dir,
+  void addToReplicasMap(VolumeReplicaMap volumeMap, File dir,
       final RamDiskReplicaTracker lazyWriteReplicaMap, boolean isFinalized,
       List<IOException> exceptions, Queue<RecursiveAction> subTaskQueue)
       throws IOException {
@@ -720,15 +718,41 @@ class BlockPoolSlice {
       // Leave both block replicas in place.
       return replica1;
     }
+    final ReplicaInfo replicaToKeep = deleteDuplicate(replica1, replica2);
+    // Update volumeMap and delete the replica
+    volumeMap.add(bpid, replicaToKeep);
+    return replicaToKeep;
+  }
+
+  /**
+   * Given two replicas, get the replica to keep and deletes the other.
+   * @param replica1
+   * @param replica2
+   * @return the replica to keep.
+   */
+  private ReplicaInfo deleteDuplicate(final ReplicaInfo replica1,
+      final ReplicaInfo replica2) {
     final ReplicaInfo replicaToDelete =
         selectReplicaToDelete(replica1, replica2);
     final ReplicaInfo replicaToKeep =
         (replicaToDelete != replica1) ? replica1 : replica2;
-    // Update volumeMap and delete the replica
-    volumeMap.add(bpid, replicaToKeep);
     if (replicaToDelete != null) {
       deleteReplica(replicaToDelete);
     }
+    return replicaToKeep;
+  }
+
+  private ReplicaInfo resolveDuplicateReplicas(
+      final ReplicaInfo replica1, final ReplicaInfo replica2,
+      final VolumeReplicaMap volumeMap) throws IOException {
+
+    if (!deleteDuplicateReplicas) {
+      // Leave both block replicas in place.
+      return replica1;
+    }
+    final ReplicaInfo replicaToKeep = deleteDuplicate(replica1, replica2);
+    // Update volumeMap and delete the replica
+    volumeMap.add(bpid, replicaToKeep);
     return replicaToKeep;
   }
 
@@ -873,9 +897,10 @@ class BlockPoolSlice {
     }
   }
 
-  private boolean readReplicasFromCache(ReplicaMap volumeMap,
+  private boolean readReplicasFromCache(VolumeReplicaMap volumeMap,
       final RamDiskReplicaTracker lazyWriteReplicaMap) {
-    ReplicaMap tmpReplicaMap = new ReplicaMap(new AutoCloseableLock());
+    VolumeReplicaMap tmpReplicaMap = new VolumeReplicaMap(
+        new AutoCloseableLock());
     File replicaFile = new File(currentDir, REPLICA_CACHE_FILE);
     // Check whether the file exists or not.
     if (!replicaFile.exists()) {
@@ -997,7 +1022,7 @@ class BlockPoolSlice {
    */
   class AddReplicaProcessor extends RecursiveAction {
 
-    private ReplicaMap volumeMap;
+    private VolumeReplicaMap volumeMap;
     private File dir;
     private RamDiskReplicaTracker lazyWriteReplicaMap;
     private boolean isFinalized;
@@ -1019,7 +1044,7 @@ class BlockPoolSlice {
      * @param subTaskQueue
      *          queue of sub tasks
      */
-    AddReplicaProcessor(ReplicaMap volumeMap, File dir,
+    AddReplicaProcessor(VolumeReplicaMap volumeMap, File dir,
         RamDiskReplicaTracker lazyWriteReplicaMap, boolean isFinalized,
         List<IOException> exceptions, Queue<RecursiveAction> subTaskQueue) {
       this.volumeMap = volumeMap;

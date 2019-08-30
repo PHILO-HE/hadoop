@@ -51,6 +51,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.ReconfigurationTaskStatus;
 import org.apache.hadoop.crypto.CryptoProtocolVersion;
 import org.apache.hadoop.fs.BatchedRemoteIterator.BatchedEntries;
+import org.apache.hadoop.fs.MountInfo;
 import org.apache.hadoop.hdfs.AddBlockFlag;
 import org.apache.hadoop.fs.CacheFlag;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
@@ -2607,5 +2608,24 @@ public class NameNodeRpcServer implements NamenodeProtocols {
           + "external SPS service is not allowed to fetch the path Ids");
     }
     return namesystem.getBlockManager().getSPSManager().getNextPathId();
+  }
+
+  @Override
+  public boolean addMount(String remote, String mount,
+      Map<String, String> config) throws IOException {
+    checkNNStartup();
+    return namesystem.addMount(remote, mount, config, nn.getConf());
+  }
+
+  @Override
+  public List<MountInfo> listMounts() throws IOException {
+    checkNNStartup();
+    return namesystem.listMounts();
+  }
+
+  @Override
+  public boolean removeMount(String mountPath) throws IOException {
+    checkNNStartup();
+    return namesystem.removeMount(mountPath);
   }
 }

@@ -60,6 +60,7 @@ message DatanodeCommandProto {
     NullDatanodeCommand = 7;
     BlockIdCommand = 8;
     BlockECReconstructionCommand = 9;
+    ProvidedVolCommand = 10;
   }
 
   required Type cmdType = 1;    // Type of the command
@@ -74,6 +75,7 @@ message DatanodeCommandProto {
   optional RegisterCommandProto registerCmd = 7;
   optional BlockIdCommandProto blkIdCmd = 8;
   optional BlockECReconstructionCommandProto blkECReconstructionCmd = 9;
+  optional ProvidedVolCommandProto providedVolCmd = 10;
 }
 
 /**
@@ -117,6 +119,22 @@ message BlockIdCommandProto {
   required Action action = 1;
   required string blockPoolId = 2;
   repeated uint64 blockIds = 3 [packed=true];
+}
+
+/**
+ * Command to instruct datanodes to perform certain action
+ * related to provided volumes.
+ */
+message ProvidedVolCommandProto {
+  enum Action {
+    ADD = 1;
+    REMOVE = 2;
+    REFRESH = 3;
+  }
+  required Action action = 1;
+  required string volumeId = 2;
+  required string remotePath = 3;
+  repeated ProvidedMountConfigProto config = 4;
 }
 
 /**
