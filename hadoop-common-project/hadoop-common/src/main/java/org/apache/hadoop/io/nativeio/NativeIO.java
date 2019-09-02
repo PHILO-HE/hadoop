@@ -124,12 +124,12 @@ public class NativeIO {
           msg = "The native code is built without PMDK support.";
           break;
         case 1:
-          msg = "The native code is built with PMDK support, but PMDK libs " +
-              "are NOT found in execution environment or failed to be loaded.";
+          msg = "The native code was built with PMDK support, but PMDK libs " +
+              "were NOT found in execution environment or failed to be loaded.";
           break;
         case 0:
-          msg = "The native code is built with PMDK support, and PMDK libs " +
-              "are loaded successfully.";
+          msg = "The native code was built with PMDK support, and PMDK libs " +
+              "were loaded successfully.";
           break;
         default:
           msg = "The state code: " + stateCode + " is unrecognized!";
@@ -140,7 +140,7 @@ public class NativeIO {
 
     // Denotes the state of supporting PMDK. The value is set by JNI.
     private static SupportState pmdkSupportState =
-        SupportState.PMDK_LIB_NOT_FOUND;
+        SupportState.UNSUPPORTED;
 
     private static final Logger LOG = LoggerFactory.getLogger(NativeIO.class);
 
@@ -178,6 +178,10 @@ public class NativeIO {
     }
 
     public static String getPmdkSupportStateMessage() {
+      if (getPmdkLibPath() != null) {
+        return pmdkSupportState.getMessage() +
+            " The pmdk lib path: " + getPmdkLibPath();
+      }
       return pmdkSupportState.getMessage();
     }
 
@@ -185,8 +189,6 @@ public class NativeIO {
       LOG.info(pmdkSupportState.getMessage());
       return pmdkSupportState == SupportState.SUPPORTED;
     }
-
-//    public static native String getLibraryName();
 
     /**
      * Denote memory region for a file mapped.
@@ -219,18 +221,6 @@ public class NativeIO {
      * JNI wrapper of persist memory operations.
      */
     public static class Pmem {
-
-      static {
-        if (NativeCodeLoader.isNativeCodeLoaded()) {
-          try {
-            // Initialize the PMDK native library
-            NativeIO.POSIX.loadPmdkLib();
-          } catch (Throwable t) {
-            LOG.warn("Error loading PMDK native libraries: " + t);
-          }
-        }
-      }
-
       // check whether the address is a Pmem address or DIMM address
       public static boolean isPmem(long address, long length) {
         return NativeIO.POSIX.isPmemCheck(address, length);
@@ -260,9 +250,13 @@ public class NativeIO {
           NativeIO.POSIX.pmemSync(region.getAddress(), region.getLength());
         }
       }
+
+      public static String getPmdkLibPath() {
+        return POSIX.getPmdkLibPath();
+      }
     }
 
-    private static native void loadPmdkLib();
+    private static native String getPmdkLibPath();
     private static native boolean isPmemCheck(long address, long length);
     private static native PmemMappedRegion pmemCreateMapFile(String path,
         long length);

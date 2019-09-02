@@ -115,6 +115,9 @@ public class NativeLibraryChecker {
 
       pmdkDetail = NativeIO.POSIX.getPmdkSupportStateMessage();
       pmdkLoaded = NativeIO.POSIX.isPmdkAvailable();
+      if (pmdkLoaded) {
+        pmdkDetail = NativeIO.POSIX.Pmem.getPmdkLibPath();
+      }
 
       openSslDetail = OpensslCipher.getLoadingFailureReason();
       if (openSslDetail != null) {
