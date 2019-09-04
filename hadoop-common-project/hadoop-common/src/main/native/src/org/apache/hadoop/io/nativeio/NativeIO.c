@@ -292,6 +292,7 @@ static int loadPmdkLib(JNIEnv *env) {
   if (mid == 0) {
     return 0;
   }
+
   if (strlen(errMsg) > 0) {
     (*env)->CallStaticVoidMethod(env, clazz, mid, 1);
     return 0;
@@ -1620,7 +1621,7 @@ JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_pm
     char msg[1000];
     succeed = pmdkLoader->pmem_msync(address, length);
     // succeed = -1 failure
-    if (succeed = -1) {
+    if (succeed == -1) {
       snprintf(msg, sizeof(msg), "Failed to msync region. address: %x, length: %x, error msg: %s", address, length, pmem_errormsg());
       THROW(env, "java/io/IOException", msg);
       return;

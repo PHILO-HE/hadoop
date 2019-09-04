@@ -121,7 +121,7 @@ public class NativeIO {
         String msg;
         switch (stateCode) {
         case -1:
-          msg = "The native code is built without PMDK support.";
+          msg = "The native code was built without PMDK support.";
           break;
         case 1:
           msg = "The native code was built with PMDK support, but PMDK libs " +
