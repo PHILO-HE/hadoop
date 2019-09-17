@@ -120,13 +120,16 @@ public class NativeIO {
       public String getMessage() {
         String msg;
         switch (stateCode) {
+        // -1 represents UNSUPPORTED.
         case -1:
           msg = "The native code was built without PMDK support.";
           break;
+        // 1 represents PMDK_LIB_NOT_FOUND.
         case 1:
           msg = "The native code was built with PMDK support, but PMDK libs " +
               "were NOT found in execution environment or failed to be loaded.";
           break;
+        // 0 represents SUPPORTED.
         case 0:
           msg = "The native code was built with PMDK support, and PMDK libs " +
               "were loaded successfully.";

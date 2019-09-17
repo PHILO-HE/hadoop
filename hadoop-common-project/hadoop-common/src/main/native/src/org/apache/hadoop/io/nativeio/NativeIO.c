@@ -294,9 +294,11 @@ static int loadPmdkLib(JNIEnv *env) {
   }
 
   if (strlen(errMsg) > 0) {
+    // Set PMDK support state to 1 which represents PMDK_LIB_NOT_FOUND.
     (*env)->CallStaticVoidMethod(env, clazz, mid, 1);
     return 0;
   }
+  // Set PMDK support state to 0 which represents SUPPORTED.
   (*env)->CallStaticVoidMethod(env, clazz, mid, 0);
   return 1;
 }
