@@ -440,7 +440,8 @@ public class FsDatasetCache {
             + " total.", key, newUsedBytes);
         // Only applicable to DRAM cache.
         if (cacheLoader.isTransientCache()) {
-          dataset.datanode.getShortCircuitRegistry().processBlockMlockEvent(key);
+          dataset.datanode.
+              getShortCircuitRegistry().processBlockMlockEvent(key);
         }
         numBlocksCached.addAndGet(1);
         dataset.datanode.getMetrics().incrBlocksCached(1);
