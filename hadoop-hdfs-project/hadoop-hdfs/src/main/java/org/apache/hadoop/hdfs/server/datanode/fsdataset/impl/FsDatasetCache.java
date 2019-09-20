@@ -480,6 +480,11 @@ public class FsDatasetCache {
     }
 
     private boolean shouldDefer() {
+      // Currently, defer condition is just checked for DRAM cache case.
+      if (!cacheLoader.isTransientCache()) {
+        return false;
+      }
+
       /* If revocationTimeMs == 0, this is an immediate uncache request.
        * No clients were anchored at the time we made the request. */
       if (revocationTimeMs == 0) {
