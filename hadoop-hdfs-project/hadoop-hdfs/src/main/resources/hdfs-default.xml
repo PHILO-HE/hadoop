@@ -2650,6 +2650,16 @@
 </property>
 
 <property>
+  <name>dfs.datanode.cache.checksum.enabled</name>
+  <value>true</value>
+  <description>
+    This value determines whether checksum is enabled when caching block to DRAM or PMEM.
+    By default, the value is true.
+  </description>
+</property>
+
+
+<property>
   <name>dfs.namenode.list.cache.directives.num.responses</name>
   <value>100</value>
   <description>

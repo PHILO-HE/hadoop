@@ -404,10 +404,16 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_DATANODE_CACHE_REVOCATION_POLLING_MS = "dfs.datanode.cache.revocation.polling.ms";
   public static final long DFS_DATANODE_CACHE_REVOCATION_POLLING_MS_DEFAULT = 500L;
 
-  // Multiple dirs separated by "," are acceptable.
+  /** Multiple dirs separated by "," are acceptable. */
   public static final String DFS_DATANODE_CACHE_PMEM_DIRS_KEY =
       "dfs.datanode.cache.pmem.dirs";
   public static final String DFS_DATANODE_CACHE_PMEM_DIRS_DEFAULT = "";
+
+  /** Enable checksum when caching block to DRAM or PMEM */
+  public static final String DFS_DATANODE_CACHE_CHECKSUM_ENABLED_KEY =
+      "dfs.datanode.cache.checksum.enabled";
+  public static final boolean DFS_DATANODE_CACHE_CHECKSUM_ENABLED_DEFAULT =
+      true;
 
   public static final String DFS_NAMENODE_DATANODE_REGISTRATION_IP_HOSTNAME_CHECK_KEY = "dfs.namenode.datanode.registration.ip-hostname-check";
   public static final boolean DFS_NAMENODE_DATANODE_REGISTRATION_IP_HOSTNAME_CHECK_DEFAULT = true;

@@ -27,6 +27,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHO
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_BLOCKREPORT_SPLIT_THRESHOLD_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_CHECKSUM_ENABLED_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_CHECKSUM_ENABLED_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_LIFELINE_INTERVAL_SECONDS_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_NON_LOCAL_LAZY_PERSIST;
@@ -118,6 +120,7 @@ public class DNConf {
 
   final long maxLockedMemory;
   private final String[] pmemDirs;
+  private final boolean cacheChecksumEnabled;
 
   private final long bpReadyTimeout;
 
@@ -265,6 +268,10 @@ public class DNConf {
 
     this.pmemDirs = getConf().getTrimmedStrings(
         DFS_DATANODE_CACHE_PMEM_DIRS_KEY);
+
+    this.cacheChecksumEnabled = getConf().getBoolean(
+        DFS_DATANODE_CACHE_CHECKSUM_ENABLED_KEY,
+        DFS_DATANODE_CACHE_CHECKSUM_ENABLED_DEFAULT);
 
     this.restartReplicaExpiry = getConf().getLong(
         DFS_DATANODE_RESTART_REPLICA_EXPIRY_KEY,
@@ -433,5 +440,9 @@ public class DNConf {
 
   public String[] getPmemVolumes() {
     return pmemDirs;
+  }
+
+  public boolean getCacheChecksumEnabled() {
+    return cacheChecksumEnabled;
   }
 }

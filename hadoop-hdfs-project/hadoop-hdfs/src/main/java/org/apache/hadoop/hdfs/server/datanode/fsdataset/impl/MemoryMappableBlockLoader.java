@@ -41,11 +41,13 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(MemoryMappableBlockLoader.class);
   private CacheStats memCacheStats;
+  private boolean checkSumEnabled;
 
   @Override
   CacheStats initialize(DNConf dnConf) throws IOException {
     LOG.info("Initializing cache loader: MemoryMappableBlockLoader.");
     this.memCacheStats = new CacheStats(dnConf.getMaxLockedMemory());
+    this.checkSumEnabled = dnConf.getCacheChecksumEnabled();
     return memCacheStats;
   }
 
@@ -80,7 +82,9 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
       }
       mmap = blockChannel.map(FileChannel.MapMode.READ_ONLY, 0, length);
       NativeIO.POSIX.getCacheManipulator().mlock(blockFileName, mmap, length);
-      verifyChecksum(length, metaIn, blockChannel, blockFileName);
+      if (checkSumEnabled) {
+        verifyChecksum(length, metaIn, blockChannel, blockFileName);
+      }
       mappableBlock = new MemoryMappedBlock(mmap, length);
     } finally {
       IOUtils.closeQuietly(blockChannel);

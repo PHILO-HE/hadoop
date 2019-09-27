@@ -40,12 +40,14 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
   private PmemVolumeManager pmemVolumeManager;
+  private boolean checkSumEnabled;
 
   @Override
   CacheStats initialize(DNConf dnConf) throws IOException {
     LOG.info("Initializing cache loader: " + this.getClass().getName());
     PmemVolumeManager.init(dnConf.getPmemVolumes());
-    pmemVolumeManager = PmemVolumeManager.getInstance();
+    this.pmemVolumeManager = PmemVolumeManager.getInstance();
+    this.checkSumEnabled = dnConf.getCacheChecksumEnabled();
     // The configuration for max locked memory is shaded.
     LOG.info("Persistent memory is used for caching data instead of " +
         "DRAM. Max locked memory is set to zero to disable DRAM cache");
@@ -95,7 +97,9 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
       // Verify checksum for the cached data instead of block file.
       // The file channel should be repositioned.
       cacheFile.getChannel().position(0);
-      verifyChecksum(length, metaIn, cacheFile.getChannel(), blockFileName);
+      if (checkSumEnabled) {
+        verifyChecksum(length, metaIn, cacheFile.getChannel(), blockFileName);
+      }
 
       mappableBlock = new PmemMappedBlock(length, key);
       LOG.info("Successfully cached one replica:{} into persistent memory"
