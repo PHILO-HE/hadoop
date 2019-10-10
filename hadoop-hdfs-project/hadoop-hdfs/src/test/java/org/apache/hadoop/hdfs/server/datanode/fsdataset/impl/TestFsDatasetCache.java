@@ -343,7 +343,7 @@ public class TestFsDatasetCache {
     // because it will be reinstalled by the @After function.
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator() {
       private final Set<String> seenIdentifiers = new HashSet<String>();
-      
+
       @Override
       public void mlock(String identifier,
           ByteBuffer mmap, long length) throws IOException {
@@ -468,7 +468,7 @@ public class TestFsDatasetCache {
       current = DFSTestUtil.verifyExpectedCacheUsage(
           current + blockSizes[i], i + 1, fsd);
     }
-    
+
     setHeartbeatResponse(new DatanodeCommand[] {
       getResponse(locs, DatanodeProtocol.DNA_UNCACHE)
     });
@@ -565,7 +565,7 @@ public class TestFsDatasetCache {
         Ints.checkedCast(CACHE_CAPACITY / BLOCK_SIZE);
     BlockReaderTestUtil.enableHdfsCachingTracing();
     Assert.assertEquals(0, CACHE_CAPACITY % BLOCK_SIZE);
-    
+
     // Create a small file
     final Path SMALL_FILE = new Path("/smallFile");
     DFSTestUtil.createFile(fs, SMALL_FILE,
@@ -577,7 +577,7 @@ public class TestFsDatasetCache {
         TOTAL_BLOCKS_PER_CACHE * BLOCK_SIZE, (short)1, 0xbeef);
     final DistributedFileSystem dfs = cluster.getFileSystem();
     dfs.addCachePool(new CachePoolInfo("pool"));
-    final long bigCacheDirectiveId = 
+    final long bigCacheDirectiveId =
         dfs.addCacheDirective(new CacheDirectiveInfo.Builder()
         .setPool("pool").setPath(BIG_FILE).setReplication((short)1).build());
     GenericTestUtils.waitFor(new Supplier<Boolean>() {
@@ -595,7 +595,7 @@ public class TestFsDatasetCache {
         return true;
       }
     }, 1000, 30000);
-    
+
     // Try to cache a smaller file.  It should fail.
     final long shortCacheDirectiveId =
       dfs.addCacheDirective(new CacheDirectiveInfo.Builder()
@@ -604,7 +604,7 @@ public class TestFsDatasetCache {
     MetricsRecordBuilder dnMetrics = getMetrics(dn.getMetrics().name());
     Assert.assertEquals(TOTAL_BLOCKS_PER_CACHE,
         MetricsAsserts.getLongCounter("BlocksCached", dnMetrics));
-    
+
     // Uncache the big file and verify that the small file can now be
     // cached (regression test for HDFS-6107)
     dfs.removeCacheDirective(bigCacheDirectiveId);
