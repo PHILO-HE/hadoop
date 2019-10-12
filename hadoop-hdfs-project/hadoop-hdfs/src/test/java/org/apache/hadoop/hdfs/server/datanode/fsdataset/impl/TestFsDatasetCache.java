@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdfs.server.datanode;
+package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import net.jcip.annotations.NotThreadSafe;
 import org.apache.hadoop.hdfs.server.protocol.SlowDiskReports;
@@ -59,9 +59,11 @@ import org.apache.hadoop.hdfs.protocol.CacheDirectiveInfo;
 import org.apache.hadoop.hdfs.protocol.CachePoolInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocolPB.DatanodeProtocolClientSideTranslatorPB;
+import org.apache.hadoop.hdfs.server.datanode.DataNode;
+import org.apache.hadoop.hdfs.server.datanode.DataNodeFaultInjector;
+import org.apache.hadoop.hdfs.server.datanode.InternalDataNodeTestUtils;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache;
-import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetCache.PageRounder;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.CacheStats.PageRounder;
 import org.apache.hadoop.hdfs.server.namenode.FSImage;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.protocol.BlockIdCommand;
@@ -100,7 +102,7 @@ public class TestFsDatasetCache {
       LoggerFactory.getLogger(TestFsDatasetCache.class);
 
   // Most Linux installs allow a default of 64KB locked memory
-  static final long CACHE_CAPACITY = 64 * 1024;
+  public static final long CACHE_CAPACITY = 64 * 1024;
   // mlock always locks the entire page. So we don't need to deal with this
   // rounding, use the OS page size for the block size.
   private static final long PAGE_SIZE =
@@ -341,7 +343,7 @@ public class TestFsDatasetCache {
     // because it will be reinstalled by the @After function.
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator() {
       private final Set<String> seenIdentifiers = new HashSet<String>();
-      
+
       @Override
       public void mlock(String identifier,
           ByteBuffer mmap, long length) throws IOException {
@@ -399,9 +401,10 @@ public class TestFsDatasetCache {
     GenericTestUtils.waitFor(new Supplier<Boolean>() {
       @Override
       public Boolean get() {
+        // check the log reported by FsDataSetCache
+        // in the case that cache capacity is exceeded.
         int lines = appender.countLinesWithMessage(
-            "more bytes in the cache: " +
-            DFSConfigKeys.DFS_DATANODE_MAX_LOCKED_MEMORY_KEY);
+            "could not reserve more bytes in the cache: ");
         return lines > 0;
       }
     }, 500, 30000);
@@ -465,7 +468,7 @@ public class TestFsDatasetCache {
       current = DFSTestUtil.verifyExpectedCacheUsage(
           current + blockSizes[i], i + 1, fsd);
     }
-    
+
     setHeartbeatResponse(new DatanodeCommand[] {
       getResponse(locs, DatanodeProtocol.DNA_UNCACHE)
     });
@@ -562,7 +565,7 @@ public class TestFsDatasetCache {
         Ints.checkedCast(CACHE_CAPACITY / BLOCK_SIZE);
     BlockReaderTestUtil.enableHdfsCachingTracing();
     Assert.assertEquals(0, CACHE_CAPACITY % BLOCK_SIZE);
-    
+
     // Create a small file
     final Path SMALL_FILE = new Path("/smallFile");
     DFSTestUtil.createFile(fs, SMALL_FILE,
@@ -574,7 +577,7 @@ public class TestFsDatasetCache {
         TOTAL_BLOCKS_PER_CACHE * BLOCK_SIZE, (short)1, 0xbeef);
     final DistributedFileSystem dfs = cluster.getFileSystem();
     dfs.addCachePool(new CachePoolInfo("pool"));
-    final long bigCacheDirectiveId = 
+    final long bigCacheDirectiveId =
         dfs.addCacheDirective(new CacheDirectiveInfo.Builder()
         .setPool("pool").setPath(BIG_FILE).setReplication((short)1).build());
     GenericTestUtils.waitFor(new Supplier<Boolean>() {
@@ -592,7 +595,7 @@ public class TestFsDatasetCache {
         return true;
       }
     }, 1000, 30000);
-    
+
     // Try to cache a smaller file.  It should fail.
     final long shortCacheDirectiveId =
       dfs.addCacheDirective(new CacheDirectiveInfo.Builder()
@@ -601,7 +604,7 @@ public class TestFsDatasetCache {
     MetricsRecordBuilder dnMetrics = getMetrics(dn.getMetrics().name());
     Assert.assertEquals(TOTAL_BLOCKS_PER_CACHE,
         MetricsAsserts.getLongCounter("BlocksCached", dnMetrics));
-    
+
     // Uncache the big file and verify that the small file can now be
     // cached (regression test for HDFS-6107)
     dfs.removeCacheDirective(bigCacheDirectiveId);
