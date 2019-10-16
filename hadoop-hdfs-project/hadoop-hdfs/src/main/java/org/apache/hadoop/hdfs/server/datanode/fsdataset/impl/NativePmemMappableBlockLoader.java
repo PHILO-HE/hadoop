@@ -140,7 +140,8 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
       DataChecksum checksum = header.getChecksum();
       final int bytesPerChecksum = checksum.getBytesPerChecksum();
       final int checksumSize = checksum.getChecksumSize();
-      final int numChunks = (8 * 1024 * 1024) / bytesPerChecksum;
+//      final int numChunks = (8 * 1024 * 1024) / bytesPerChecksum;
+      final int numChunks = (4 * 1024) / bytesPerChecksum;
       ByteBuffer blockBuf = ByteBuffer.allocate(numChunks * bytesPerChecksum);
       ByteBuffer checksumBuf = ByteBuffer.allocate(numChunks * checksumSize);
       // Verify the checksum
