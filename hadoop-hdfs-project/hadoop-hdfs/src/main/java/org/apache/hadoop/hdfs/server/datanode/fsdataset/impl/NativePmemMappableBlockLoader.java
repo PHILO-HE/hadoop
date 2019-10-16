@@ -178,7 +178,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
         checksumBuf.clear();
       }
       if (region != null) {
-        POSIX.Pmem.memSync(region);
+//        POSIX.Pmem.memSync(region);
       }
     } finally {
       IOUtils.closeQuietly(metaChannel);
