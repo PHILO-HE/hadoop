@@ -18,24 +18,21 @@
 
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
-import com.google.common.base.Preconditions;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
-import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DNConf;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIO.POSIX;
-import org.apache.hadoop.util.DataChecksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.io.RandomAccessFile;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
 
 /**
@@ -80,7 +77,7 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
       throws IOException {
     NativePmemMappedBlock mappableBlock = null;
     POSIX.PmemMappedRegion region = null;
-    String filePath = null;
+    String cachePath = null;
 
     FileChannel blockChannel = null;
     try {
@@ -90,19 +87,29 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
       }
 
       assert NativeIO.isAvailable();
-      filePath = PmemVolumeManager.getInstance().getCachePath(key);
-      region = POSIX.Pmem.mapBlock(filePath, length);
+      cachePath = PmemVolumeManager.getInstance().getCachePath(key);
+      region = POSIX.Pmem.mapBlock(cachePath, length);
       if (region == null) {
         throw new IOException("Failed to map the block " + blockFileName +
             " to persistent storage.");
       }
-      verifyChecksumAndMapBlock(region, length, metaIn, blockChannel,
-          blockFileName);
+      // Get block path from blockFileName which includes schema.
+      String blockPath = new URI(blockFileName).getPath();
+      // Native code may throw RuntimeException
+      POSIX.Pmem.memCopyOffHeap(blockPath, region.getAddress(),
+          region.isPmem(), length);
+      if (region != null) {
+        POSIX.Pmem.memSync(region);
+      }
+      verifyChecksum(length, metaIn, new RandomAccessFile(
+          cachePath, "r").getChannel(), blockFileName);
       mappableBlock = new NativePmemMappedBlock(region.getAddress(),
           region.getLength(), key);
       LOG.info("Successfully cached one replica:{} into persistent memory"
-          + ", [cached path={}, address={}, length={}]", key, filePath,
+          + ", [cached path={}, address={}, length={}]", key, cachePath,
           region.getAddress(), length);
+    } catch (URISyntaxException | RuntimeException e) {
+      throw new IOException(e);
     } finally {
       IOUtils.closeQuietly(blockChannel);
       if (mappableBlock == null) {
@@ -110,80 +117,11 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
           // unmap content from persistent memory
           POSIX.Pmem.unmapBlock(region.getAddress(),
               region.getLength());
-          FsDatasetUtil.deleteMappedFile(filePath);
+          FsDatasetUtil.deleteMappedFile(cachePath);
         }
       }
     }
     return mappableBlock;
-  }
-
-  /**
-   * Verifies the block's checksum meanwhile map block to persistent memory.
-   * This is an I/O intensive operation.
-   */
-  private void verifyChecksumAndMapBlock(POSIX.PmemMappedRegion region,
-      long length, FileInputStream metaIn, FileChannel blockChannel,
-      String blockFileName) throws IOException {
-    // Verify the checksum from the block's meta file
-    // Get the DataChecksum from the meta file header
-    BlockMetadataHeader header =
-        BlockMetadataHeader.readHeader(new DataInputStream(
-            new BufferedInputStream(metaIn, BlockMetadataHeader
-                .getHeaderSize())));
-    FileChannel metaChannel = null;
-    try {
-      metaChannel = metaIn.getChannel();
-      if (metaChannel == null) {
-        throw new IOException("Cannot get FileChannel" +
-            " from Block InputStream meta file.");
-      }
-      DataChecksum checksum = header.getChecksum();
-      final int bytesPerChecksum = checksum.getBytesPerChecksum();
-      final int checksumSize = checksum.getChecksumSize();
-//      final int numChunks = (8 * 1024 * 1024) / bytesPerChecksum;
-      final int numChunks = (4 * 1024) / bytesPerChecksum;
-      ByteBuffer blockBuf = ByteBuffer.allocate(numChunks * bytesPerChecksum);
-      ByteBuffer checksumBuf = ByteBuffer.allocate(numChunks * checksumSize);
-      // Verify the checksum
-      int bytesVerified = 0;
-      long mappedAddress = -1L;
-      if (region != null) {
-        mappedAddress = region.getAddress();
-      }
-      while (bytesVerified < length) {
-        Preconditions.checkState(bytesVerified % bytesPerChecksum == 0,
-            "Unexpected partial chunk before EOF.");
-        assert bytesVerified % bytesPerChecksum == 0;
-        int bytesRead = fillBuffer(blockChannel, blockBuf);
-        if (bytesRead == -1) {
-          throw new IOException(
-              "Checksum verification failed for the block " + blockFileName +
-                  ": premature EOF");
-        }
-        blockBuf.flip();
-        // Number of read chunks, including partial chunk at end
-        int chunks = (bytesRead + bytesPerChecksum - 1) / bytesPerChecksum;
-        checksumBuf.limit(chunks * checksumSize);
-        fillBuffer(metaChannel, checksumBuf);
-        checksumBuf.flip();
-        checksum.verifyChunkedSums(blockBuf, checksumBuf, blockFileName,
-            bytesVerified);
-        // Success
-        bytesVerified += bytesRead;
-        // Copy data to persistent file
-        POSIX.Pmem.memCopy(blockBuf.array(), mappedAddress,
-            region.isPmem(), bytesRead);
-        mappedAddress += bytesRead;
-        // Clear buffer
-        blockBuf.clear();
-        checksumBuf.clear();
-      }
-      if (region != null) {
-//        POSIX.Pmem.memSync(region);
-      }
-    } finally {
-      IOUtils.closeQuietly(metaChannel);
-    }
   }
 
   @Override

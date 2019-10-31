@@ -245,6 +245,11 @@ public class NativeIO {
         NativeIO.POSIX.pmemCopy(src, dest, isPmem, length);
       }
 
+      public static void memCopyOffHeap(String filePath, long dest,
+          boolean isPmem, long length) {
+        NativeIO.POSIX.pmemCopyOffHeap(filePath, dest, isPmem, length);
+      }
+
       // flush the memory content to persistent storage
       public static void memSync(PmemMappedRegion region) {
         if (region.isPmem()) {
@@ -266,6 +271,8 @@ public class NativeIO {
     private static native boolean pmemUnMap(long address, long length);
     private static native void pmemCopy(byte[] src, long dest, boolean isPmem,
         long length);
+    private static native void pmemCopyOffHeap(String filePath, long dest,
+        boolean isPmem, long length);
     private static native void pmemDrain();
     private static native void pmemSync(long address, long length);
 

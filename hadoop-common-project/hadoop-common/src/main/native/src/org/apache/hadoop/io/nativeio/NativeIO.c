@@ -1596,6 +1596,50 @@ JNIEnv *env, jclass thisClass, jbyteArray buf, jlong address, jboolean is_pmem, 
   }
 
 /*
+ * Class:     org_apache_hadoop_io_nativeio_NativeIO_POSIX
+ * Method:    pmemCopyOffHeap
+ * Signature: ([Ljava/lang/String;JZJ)V
+ */
+JNIEXPORT void JNICALL Java_org_apache_hadoop_io_nativeio_NativeIO_00024POSIX_pmemCopyOffHeap(
+JNIEnv *env, jclass thisClass, jstring file_path, jlong address, jboolean is_pmem, jlong length) {
+  #if (defined UNIX) && (defined HADOOP_PMDK_LIBRARY)
+    char msg[1000];
+    const char * path = NULL;
+    char * src_addr =  NULL;
+
+    path = (*env)->GetStringUTFChars(env, file_path, NULL);
+    if (!path) {
+      THROW(env, "java/lang/IllegalArgumentException", "File path cannot be null");
+      return;
+    }
+    int fd = open(path, O_RDONLY, S_IRUSR);
+    if (fd < 0) {
+      snprintf(msg, sizeof(msg), "Failed to open file: %s.", path);
+      THROW(env, "java/lang/IllegalArgumentException", msg);
+      (*env)->ReleaseStringUTFChars(env, file_path, path);
+      return;
+    }
+
+    src_addr = mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0);
+    snprintf(msg, sizeof(msg), "Pmem copy content. dest: %x, length: %x, src: %x ", address, length, src_addr);
+
+    if (is_pmem) {
+      pmdkLoader->pmem_memcpy_nodrain(address, src_addr, length);
+    } else {
+      memcpy(address, src_addr, length);
+    }
+
+    (*env)->ReleaseStringUTFChars(env, file_path, path);
+    munmap(src_addr, length);
+    close(fd);
+    return;
+  #else
+    THROW(env, "java/lang/UnsupportedOperationException",
+        "The function pmemCopy is not supported.");
+  #endif
+  }
+
+/*
  * Class:     org_apache_hadoop_io_nativeio_NativeIO
  * Method:    pmemDrain
  * Signature: ()V
