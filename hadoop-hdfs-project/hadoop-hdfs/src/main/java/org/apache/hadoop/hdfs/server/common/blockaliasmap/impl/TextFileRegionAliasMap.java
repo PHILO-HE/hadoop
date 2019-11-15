@@ -113,6 +113,13 @@ public class TextFileRegionAliasMap
       filename = filename + codec.getDefaultExtension();
     }
     Path bpidFilePath = new Path(file.getParent(), filename);
+    File aliasMap = new File(bpidFilePath.toString());
+    if (!aliasMap.exists()) {
+      LOG.info("AliasMap file is missing, trying to create it: " + aliasMap);
+      if (!aliasMap.createNewFile()) {
+        throw new IOException("Failed to create AliasMap " + aliasMap);
+      }
+    }
     return new TextReader(fs, bpidFilePath, codec, delim);
   }
 
@@ -175,7 +182,7 @@ public class TextFileRegionAliasMap
       file = new Path(tmpfile);
       delim = conf.get(DFSConfigKeys.DFS_PROVIDED_ALIASMAP_TEXT_DELIMITER,
           DFSConfigKeys.DFS_PROVIDED_ALIASMAP_TEXT_DELIMITER_DEFAULT);
-      LOG.info("TextFileRegionAliasMap: read path {}", tmpfile);
+//      LOG.info("TextFileRegionAliasMap: read path {}", tmpfile);
     }
 
     @Override

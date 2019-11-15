@@ -421,9 +421,6 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_IMAGE_WRITER_BLOCK_RESOLVER_CLASS = "hdfs.image.writer.blockresolver.class";
   public static final Class<? extends BlockResolver> DFS_IMAGE_WRITER_BLOCK_RESOLVER_CLASS_DEFAULT = FixedBlockResolver.class;
 
-  public static final String DFS_OVERREPLICATION_FACTOR_KEY = "dfs.overreplication.factor";
-  public static final short DFS_OVERREPLICATION_FACTOR_DEFAULT = 0;
-
   public static final String DFS_NAMENODE_MOUNT_LOCK_DURATION_MAX = "dfs.namenode.mount.lock.duration";
   public static final long DFS_NAMENODE_MOUNT_LOCK_DURATION_MAX_DEFAULT = TimeUnit.SECONDS.toMillis(1);
 
