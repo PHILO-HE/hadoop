@@ -113,11 +113,10 @@ public class TextFileRegionAliasMap
       filename = filename + codec.getDefaultExtension();
     }
     Path bpidFilePath = new Path(file.getParent(), filename);
-    File aliasMap = new File(bpidFilePath.toString());
-    if (!aliasMap.exists()) {
-      LOG.info("AliasMap file is missing, trying to create it: " + aliasMap);
-      if (!aliasMap.createNewFile()) {
-        throw new IOException("Failed to create AliasMap " + aliasMap);
+    if (!fs.exists(bpidFilePath)) {
+      LOG.warn("AliasMap file is missing, trying to create it: " + bpidFilePath);
+      if (!fs.createNewFile(bpidFilePath)) {
+        throw new IOException("Failed to create AliasMap " + bpidFilePath);
       }
     }
     return new TextReader(fs, bpidFilePath, codec, delim);
