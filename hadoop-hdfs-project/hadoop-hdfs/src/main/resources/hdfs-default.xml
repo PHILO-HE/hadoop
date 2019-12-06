@@ -2649,11 +2649,12 @@
 </property>
 
 <property>
-  <name>dfs.datanode.cache.persistence.enabled</name>
+  <name>dfs.datanode.cache.restore.enabled</name>
   <value>true</value>
   <description>
-    This value specifies whether persistent cache is enabled. This configuration
-    is valid only if persistent memory cache is enabled.
+    This value specifies whether previous cache on persistent memory will be restored.
+    This configuration can take effect only if persistent memory cache is enabled by
+    specifying value for 'dfs.datanode.cache.pmem.dirs'.
   </description>
 </property>
 
