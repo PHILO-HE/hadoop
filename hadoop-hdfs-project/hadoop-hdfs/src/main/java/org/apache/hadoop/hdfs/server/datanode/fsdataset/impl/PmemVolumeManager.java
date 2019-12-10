@@ -119,7 +119,7 @@ public final class PmemVolumeManager {
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap<>();
   private final List<UsedBytesCount> usedBytesCounts = new ArrayList<>();
-  private boolean persistCacheEnabled;
+  private boolean cacheRestoreEnabled;
 
   /**
    * The total cache capacity in bytes of persistent memory.
@@ -130,13 +130,13 @@ public final class PmemVolumeManager {
   private byte nextIndex = 0;
 
   private PmemVolumeManager(String[] pmemVolumesConfig,
-                            boolean persistCacheEnabled) throws IOException {
+                            boolean cacheRestoreEnabled) throws IOException {
     if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
       throw new IOException("The persistent memory volume, " +
-          DFSConfigKeys.DFS_DATANODE_CACHE_PMEM_DIRS_KEY +
+          DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_DIRS_KEY +
           " is not configured!");
     }
-    this.persistCacheEnabled = persistCacheEnabled;
+    this.cacheRestoreEnabled = cacheRestoreEnabled;
     this.loadVolumes(pmemVolumesConfig);
     cacheCapacity = 0L;
     for (UsedBytesCount counter : usedBytesCounts) {
@@ -145,11 +145,11 @@ public final class PmemVolumeManager {
   }
 
   public synchronized static void init(
-      String[] pmemVolumesConfig, boolean persistCacheEnabled)
+      String[] pmemVolumesConfig, boolean cacheRestoreEnabled)
       throws IOException {
     if (pmemVolumeManager == null) {
       pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig,
-          persistCacheEnabled);
+          cacheRestoreEnabled);
     }
   }
 
@@ -234,7 +234,7 @@ public final class PmemVolumeManager {
       try {
         File pmemDir = new File(volumes[n]);
         File realPmemDir = verifyIfValidPmemVolume(pmemDir);
-        if (!persistCacheEnabled) {
+        if (!cacheRestoreEnabled) {
           // Clean up the cache left before, if any.
           cleanup(realPmemDir);
         }

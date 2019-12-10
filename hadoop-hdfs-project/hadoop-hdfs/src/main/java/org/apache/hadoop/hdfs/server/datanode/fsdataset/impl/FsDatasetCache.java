@@ -196,7 +196,7 @@ public class FsDatasetCache {
       return;
     }
     PmemVolumeManager.getInstance().createBlockPoolDir(bpid);
-    if (getDnConf().getPersistCacheEnabled()) {
+    if (getDnConf().getPmemCacheRestoreEnabled()) {
       final Map<ExtendedBlockId, MappableBlock> keyToMappableBlock =
           PmemVolumeManager.getInstance().restoreCache(bpid, cacheLoader);
       Set<Map.Entry<ExtendedBlockId, MappableBlock>> entrySet

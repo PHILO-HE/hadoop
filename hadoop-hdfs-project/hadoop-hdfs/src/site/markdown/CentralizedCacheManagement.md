@@ -224,7 +224,7 @@ Be sure to configure one of the following properties for DRAM cache or persisten
 
     This setting is shared with the [Lazy Persist Writes feature](./MemoryStorage.html). The Data Node will ensure that the combined memory used by Lazy Persist Writes and Centralized Cache Management does not exceed the amount configured in `dfs.datanode.max.locked.memory`.
 
-*   dfs.datanode.cache.pmem.dirs
+*   dfs.datanode.pmem.cache.dirs
 
     This property specifies the cache volume of persistent memory. For multiple volumes, they should be separated by “,”, e.g. “/mnt/pmem0, /mnt/pmem1”. The default value is empty. If this property is configured, the volume capacity will be detected. And there is no need to configure `dfs.datanode.max.locked.memory`.
 

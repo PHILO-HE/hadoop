@@ -2640,7 +2640,7 @@
 </property>
 
 <property>
-  <name>dfs.datanode.cache.pmem.dirs</name>
+  <name>dfs.datanode.pmem.cache.dirs</name>
   <value></value>
   <description>
     This value specifies the persistent memory directory used for caching block
@@ -2649,12 +2649,12 @@
 </property>
 
 <property>
-  <name>dfs.datanode.cache.restore.enabled</name>
+  <name>dfs.datanode.pmem.cache.restore</name>
   <value>true</value>
   <description>
     This value specifies whether previous cache on persistent memory will be restored.
     This configuration can take effect only if persistent memory cache is enabled by
-    specifying value for 'dfs.datanode.cache.pmem.dirs'.
+    specifying value for 'dfs.datanode.pmem.cache.dirs'.
   </description>
 </property>
 
