@@ -125,7 +125,7 @@ public class TestPmemCacheRestore {
   @Before
   public void setUp() throws Exception {
     conf = new HdfsConfiguration();
-    conf.setBoolean(DFS_DATANODE_CACHE_PERSISTENCE_ENABLED_KEY, true);
+    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RESTORE_KEY, true);
     conf.setLong(DFSConfigKeys.
         DFS_NAMENODE_PATH_BASED_CACHE_REFRESH_INTERVAL_MS, 100);
     conf.setLong(DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY, 500);
@@ -138,7 +138,7 @@ public class TestPmemCacheRestore {
     new File(PMEM_DIR_0).getAbsoluteFile().mkdir();
     new File(PMEM_DIR_1).getAbsoluteFile().mkdir();
     // Configure two bogus pmem volumes
-    conf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
+    conf.set(DFS_DATANODE_PMEM_CACHE_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());
@@ -167,7 +167,7 @@ public class TestPmemCacheRestore {
 
   protected static void restartCluster() throws Exception {
     conf = new HdfsConfiguration();
-    conf.setBoolean(DFS_DATANODE_CACHE_PERSISTENCE_ENABLED_KEY, true);
+    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RESTORE_KEY, true);
     conf.setLong(DFSConfigKeys.
         DFS_NAMENODE_PATH_BASED_CACHE_REFRESH_INTERVAL_MS, 100);
     conf.setLong(DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY, 500);
@@ -176,7 +176,7 @@ public class TestPmemCacheRestore {
     conf.setInt(
         DFS_DATANODE_FSDATASETCACHE_MAX_THREADS_PER_VOLUME_KEY, 10);
     // Configure two bogus pmem volumes
-    conf.set(DFS_DATANODE_CACHE_PMEM_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
+    conf.set(DFS_DATANODE_PMEM_CACHE_DIRS_KEY, PMEM_DIR_0 + "," + PMEM_DIR_1);
 
     prevCacheManipulator = NativeIO.POSIX.getCacheManipulator();
     NativeIO.POSIX.setCacheManipulator(new NoMlockCacheManipulator());
