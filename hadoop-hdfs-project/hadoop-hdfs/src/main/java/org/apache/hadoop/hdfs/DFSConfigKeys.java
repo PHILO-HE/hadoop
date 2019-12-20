@@ -411,9 +411,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_DATANODE_PMEM_CACHE_DIRS_KEY =
       "dfs.datanode.pmem.cache.dirs";
   public static final String DFS_DATANODE_PMEM_CACHE_DIRS_DEFAULT = "";
-  public static final String  DFS_DATANODE_PMEM_CACHE_RESTORE_KEY =
-      "dfs.datanode.pmem.cache.restore";
-  public static final boolean DFS_DATANODE_PMEM_CACHE_RESTORE_DEFAULT =
+  public static final String  DFS_DATANODE_PMEM_CACHE_RECOVERY_KEY =
+      "dfs.datanode.pmem.cache.recovery";
+  public static final boolean DFS_DATANODE_PMEM_CACHE_RECOVERY_DEFAULT =
       true;
 
   public static final String DFS_NAMENODE_DATANODE_REGISTRATION_IP_HOSTNAME_CHECK_KEY = "dfs.namenode.datanode.registration.ip-hostname-check";

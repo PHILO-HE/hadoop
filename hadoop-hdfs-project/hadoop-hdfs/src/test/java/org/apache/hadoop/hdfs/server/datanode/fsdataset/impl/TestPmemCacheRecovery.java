@@ -70,7 +70,7 @@ import com.google.common.primitives.Ints;
  *
  * Bogus persistent memory volume is used to cache blocks.
  */
-public class TestPmemCacheRestore {
+public class TestPmemCacheRecovery {
   protected static final org.slf4j.Logger LOG =
       LoggerFactory.getLogger(TestCacheByPmemMappableBlockLoader.class);
 
@@ -125,7 +125,7 @@ public class TestPmemCacheRestore {
   @Before
   public void setUp() throws Exception {
     conf = new HdfsConfiguration();
-    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RESTORE_KEY, true);
+    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RECOVERY_KEY, true);
     conf.setLong(DFSConfigKeys.
         DFS_NAMENODE_PATH_BASED_CACHE_REFRESH_INTERVAL_MS, 100);
     conf.setLong(DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY, 500);
@@ -167,7 +167,7 @@ public class TestPmemCacheRestore {
 
   protected static void restartCluster() throws Exception {
     conf = new HdfsConfiguration();
-    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RESTORE_KEY, true);
+    conf.setBoolean(DFS_DATANODE_PMEM_CACHE_RECOVERY_KEY, true);
     conf.setLong(DFSConfigKeys.
         DFS_NAMENODE_PATH_BASED_CACHE_REFRESH_INTERVAL_MS, 100);
     conf.setLong(DFSConfigKeys.DFS_CACHEREPORT_INTERVAL_MSEC_KEY, 500);
@@ -213,7 +213,7 @@ public class TestPmemCacheRestore {
   }
 
   @Test(timeout = 60000)
-  public void testCacheRestore() throws Exception {
+  public void testCacheRecovery() throws Exception {
     final int cacheBlocksNum =
         Ints.checkedCast(CACHE_AMOUNT / BLOCK_SIZE);
     BlockReaderTestUtil.enableHdfsCachingTracing();
@@ -279,7 +279,7 @@ public class TestPmemCacheRestore {
       }
     }
 
-    // Trigger cache restore
+    // Trigger cache recovery
     shutdownCluster();
     restartCluster();
 

@@ -113,9 +113,9 @@ public abstract class MappableBlockLoader {
   abstract boolean isNativeLoader();
 
   /**
-   * Get mappableBlock restored from persistent memory.
+   * Get mappableBlock recovered from persistent memory.
    */
-  abstract MappableBlock getRestoredMappableBlock(
+  abstract MappableBlock getRecoveredMappableBlock(
       File cacheFile, String bpid, byte volumeIndex) throws IOException;
 
   /**

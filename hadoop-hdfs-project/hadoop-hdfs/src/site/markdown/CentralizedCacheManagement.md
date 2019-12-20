@@ -258,9 +258,9 @@ The following properties are not required, but may be specified for tuning:
 
     This parameter can be used to enable/disable the centralized caching in NameNode. When centralized caching is disabled, NameNode will not process cache reports or store information about block cache locations on the cluster. Note that NameNode will continute to store the path based cache locations in the file-system metadata, even though it will not act on this information until the caching is enabled. The default value for this parameter is true (i.e. centralized caching is enabled).
 
-*   dfs.datanode.pmem.cache.restore
+*   dfs.datanode.pmem.cache.recovery
 
-    This parameter is used to determine whether to restore the status for previous cache on persistent memory during the start of DataNode. If it is enabled, DataNode will restore the status for previously cached data on persistent memory. Thus, re-caching data will be avoided. If this property is not enabled, DataNode will clean up the previous cache, if any, on persistent memory. This property can only work when persistent memory is enabled, i.e., `dfs.datanode.pmem.cache.dirs` is configured.
+    This parameter is used to determine whether to recover the status for previous cache on persistent memory during the start of DataNode. If it is enabled, DataNode will recover the status for previously cached data on persistent memory. Thus, re-caching data will be avoided. If this property is not enabled, DataNode will clean up the previous cache, if any, on persistent memory. This property can only work when persistent memory is enabled, i.e., `dfs.datanode.pmem.cache.dirs` is configured.
 
 ### OS Limits
 

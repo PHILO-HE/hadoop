@@ -33,8 +33,8 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_NON_LOCAL_LAZY_P
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_OUTLIERS_REPORT_INTERVAL_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_OUTLIERS_REPORT_INTERVAL_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_DIRS_KEY;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_RESTORE_DEFAULT;
-import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_RESTORE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_RECOVERY_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_RECOVERY_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_OVERWRITE_DOWNSTREAM_DERIVED_QOP_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_ENCRYPT_DATA_OVERWRITE_DOWNSTREAM_DERIVED_QOP_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
@@ -95,7 +95,7 @@ public class DNConf {
   final boolean encryptDataTransfer;
   final boolean connectToDnViaHostname;
   final boolean overwriteDownstreamDerivedQOP;
-  private final boolean pmemCacheRestoreEnabled;
+  private final boolean pmemCacheRecoveryEnabled;
 
   final long readaheadLength;
   final long heartBeatInterval;
@@ -289,9 +289,9 @@ public class DNConf {
         getConf().getTrimmedStrings(DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY);
     this.volsConfigured = (dataDirs == null) ? 0 : dataDirs.length;
 
-    this.pmemCacheRestoreEnabled = getConf().getBoolean(
-        DFS_DATANODE_PMEM_CACHE_RESTORE_KEY,
-        DFS_DATANODE_PMEM_CACHE_RESTORE_DEFAULT);
+    this.pmemCacheRecoveryEnabled = getConf().getBoolean(
+        DFS_DATANODE_PMEM_CACHE_RECOVERY_KEY,
+        DFS_DATANODE_PMEM_CACHE_RECOVERY_DEFAULT);
   }
 
   // We get minimumNameNodeVersion via a method so it can be mocked out in tests.
@@ -442,7 +442,7 @@ public class DNConf {
     return pmemDirs;
   }
 
-  public boolean getPmemCacheRestoreEnabled() {
-    return pmemCacheRestoreEnabled;
+  public boolean getPmemCacheRecoveryEnabled() {
+    return pmemCacheRecoveryEnabled;
   }
 }

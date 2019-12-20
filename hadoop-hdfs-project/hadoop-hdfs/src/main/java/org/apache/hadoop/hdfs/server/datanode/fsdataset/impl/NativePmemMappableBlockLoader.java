@@ -192,25 +192,25 @@ public class NativePmemMappableBlockLoader extends PmemMappableBlockLoader {
   }
 
   @Override
-  public MappableBlock getRestoredMappableBlock(
+  public MappableBlock getRecoveredMappableBlock(
       File cacheFile, String bpid, byte volumeIndex) throws IOException {
     NativeIO.POSIX.PmemMappedRegion region =
         NativeIO.POSIX.Pmem.mapBlock(cacheFile.getAbsolutePath(),
             cacheFile.length(), true);
     if (region == null) {
-      throw new IOException("Failed to restore the block "
+      throw new IOException("Failed to recover the block "
           + cacheFile.getName() + " in persistent storage.");
     }
     ExtendedBlockId key =
         new ExtendedBlockId(super.getBlockId(cacheFile), bpid);
     MappableBlock mappableBlock = new NativePmemMappedBlock(
         region.getAddress(), region.getLength(), key);
-    PmemVolumeManager.getInstance().restoreblockKeyToVolume(key, volumeIndex);
+    PmemVolumeManager.getInstance().recoverBlockKeyToVolume(key, volumeIndex);
 
     String path = PmemVolumeManager.getInstance().getCachePath(key);
     long addr = mappableBlock.getAddress();
     long length = mappableBlock.getLength();
-    LOG.info("Restoring the persistent cache for block {}, " +
+    LOG.info("Recovering persistent memory cache for block {}, " +
         "path = {}, address = {}, length = {}", key, path, addr, length);
     return mappableBlock;
   }

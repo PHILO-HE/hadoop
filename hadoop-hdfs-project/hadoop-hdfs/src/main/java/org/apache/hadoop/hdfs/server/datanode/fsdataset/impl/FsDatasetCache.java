@@ -188,17 +188,17 @@ public class FsDatasetCache {
 
   /**
    * For persistent memory cache, create cache subdirectory specified with
-   * blockPoolId to store cached files.
-   * Restore cache from the cached files in persistent memory volumes.
+   * blockPoolId to store cache data.
+   * Recover the status of cache in persistent memory, if any.
    */
   public void initCache(String bpid) throws IOException {
     if (cacheLoader.isTransientCache()) {
       return;
     }
     PmemVolumeManager.getInstance().createBlockPoolDir(bpid);
-    if (getDnConf().getPmemCacheRestoreEnabled()) {
+    if (getDnConf().getPmemCacheRecoveryEnabled()) {
       final Map<ExtendedBlockId, MappableBlock> keyToMappableBlock =
-          PmemVolumeManager.getInstance().restoreCache(bpid, cacheLoader);
+          PmemVolumeManager.getInstance().recoverCache(bpid, cacheLoader);
       Set<Map.Entry<ExtendedBlockId, MappableBlock>> entrySet
           = keyToMappableBlock.entrySet();
       for (Map.Entry<ExtendedBlockId, MappableBlock> entry : entrySet) {
