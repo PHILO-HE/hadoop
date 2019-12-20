@@ -120,7 +120,7 @@ public class MemoryMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public MappableBlock getRestoredMappableBlock(
+  public MappableBlock getRecoveredMappableBlock(
       File cacheFile, String bpid, byte volumeIndex) throws IOException {
     return null;
   }

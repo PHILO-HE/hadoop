@@ -41,15 +41,15 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   private static final Logger LOG =
       LoggerFactory.getLogger(PmemMappableBlockLoader.class);
   private PmemVolumeManager pmemVolumeManager;
-  private boolean cacheRestoreEnabled;
+  private boolean cacheRecoveryEnabled;
 
   @Override
   CacheStats initialize(DNConf dnConf) throws IOException {
     LOG.info("Initializing cache loader: " + this.getClass().getName());
     PmemVolumeManager.init(dnConf.getPmemVolumes(),
-        dnConf.getPmemCacheRestoreEnabled());
+        dnConf.getPmemCacheRecoveryEnabled());
     pmemVolumeManager = PmemVolumeManager.getInstance();
-    cacheRestoreEnabled = dnConf.getPmemCacheRestoreEnabled();
+    cacheRecoveryEnabled = dnConf.getPmemCacheRecoveryEnabled();
     // The configuration for max locked memory is shaded.
     LOG.info("Persistent memory is used for caching data instead of " +
         "DRAM. Max locked memory is set to zero to disable DRAM cache");
@@ -146,11 +146,11 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
   }
 
   @Override
-  public MappableBlock getRestoredMappableBlock(
+  public MappableBlock getRecoveredMappableBlock(
       File cacheFile, String bpid, byte volumeIndex) throws IOException {
     ExtendedBlockId key = new ExtendedBlockId(getBlockId(cacheFile), bpid);
     MappableBlock mappableBlock = new PmemMappedBlock(cacheFile.length(), key);
-    PmemVolumeManager.getInstance().restoreblockKeyToVolume(key, volumeIndex);
+    PmemVolumeManager.getInstance().recoverBlockKeyToVolume(key, volumeIndex);
 
     String path = PmemVolumeManager.getInstance().getCachePath(key);
     long length = mappableBlock.getLength();
@@ -168,7 +168,7 @@ public class PmemMappableBlockLoader extends MappableBlockLoader {
 
   @Override
   void shutdown() {
-    if (!cacheRestoreEnabled) {
+    if (!cacheRecoveryEnabled) {
       LOG.info("Clean up cache on persistent memory during shutdown.");
       PmemVolumeManager.getInstance().cleanup();
     }

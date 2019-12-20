@@ -119,7 +119,7 @@ public final class PmemVolumeManager {
   private final Map<ExtendedBlockId, Byte> blockKeyToVolume =
       new ConcurrentHashMap<>();
   private final List<UsedBytesCount> usedBytesCounts = new ArrayList<>();
-  private boolean cacheRestoreEnabled;
+  private boolean cacheRecoveryEnabled;
 
   /**
    * The total cache capacity in bytes of persistent memory.
@@ -130,13 +130,13 @@ public final class PmemVolumeManager {
   private byte nextIndex = 0;
 
   private PmemVolumeManager(String[] pmemVolumesConfig,
-                            boolean cacheRestoreEnabled) throws IOException {
+                            boolean cacheRecoveryEnabled) throws IOException {
     if (pmemVolumesConfig == null || pmemVolumesConfig.length == 0) {
       throw new IOException("The persistent memory volume, " +
           DFSConfigKeys.DFS_DATANODE_PMEM_CACHE_DIRS_KEY +
           " is not configured!");
     }
-    this.cacheRestoreEnabled = cacheRestoreEnabled;
+    this.cacheRecoveryEnabled = cacheRecoveryEnabled;
     this.loadVolumes(pmemVolumesConfig);
     cacheCapacity = 0L;
     for (UsedBytesCount counter : usedBytesCounts) {
@@ -145,11 +145,11 @@ public final class PmemVolumeManager {
   }
 
   public synchronized static void init(
-      String[] pmemVolumesConfig, boolean cacheRestoreEnabled)
+      String[] pmemVolumesConfig, boolean cacheRecoveryEnabled)
       throws IOException {
     if (pmemVolumeManager == null) {
       pmemVolumeManager = new PmemVolumeManager(pmemVolumesConfig,
-          cacheRestoreEnabled);
+          cacheRecoveryEnabled);
     }
   }
 
@@ -234,7 +234,7 @@ public final class PmemVolumeManager {
       try {
         File pmemDir = new File(volumes[n]);
         File realPmemDir = verifyIfValidPmemVolume(pmemDir);
-        if (!cacheRestoreEnabled) {
+        if (!cacheRecoveryEnabled) {
           // Clean up the cache left before, if any.
           cleanup(realPmemDir);
         }
@@ -280,9 +280,9 @@ public final class PmemVolumeManager {
   }
 
   /**
-   * Restore cache from the cached files in the configured pmem volumes.
+   * Recover cache from the cached files in the configured pmem volumes.
    */
-  public Map<ExtendedBlockId, MappableBlock> restoreCache(
+  public Map<ExtendedBlockId, MappableBlock> recoverCache(
       String bpid, MappableBlockLoader cacheLoader) throws IOException {
     final Map<ExtendedBlockId, MappableBlock> keyToMappableBlock
         = new ConcurrentHashMap<>();
@@ -293,16 +293,16 @@ public final class PmemVolumeManager {
       File cacheDir = new File(pmemVolumes.get(volumeIndex), bpid);
       Collection<File> cachedFileList = FileUtils.listFiles(cacheDir,
           TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE);
-      // Scan the cached files in pmem volumes for cache restore.
+      // Scan the cached files in pmem volumes for cache recovery.
       for (File cachedFile : cachedFileList) {
         MappableBlock mappableBlock = cacheLoader.
-            getRestoredMappableBlock(cachedFile, bpid, volumeIndex);
+            getRecoveredMappableBlock(cachedFile, bpid, volumeIndex);
         ExtendedBlockId key = mappableBlock.getKey();
         keyToMappableBlock.put(key, mappableBlock);
         usedBytes += cachedFile.length();
       }
       // Update maxBytes and cache capacity according to cache space
-      // used by restored cached files.
+      // used by recovered cached files.
       usedBytesCounts.get(volumeIndex).setMaxBytes(maxBytes + usedBytes);
       cacheCapacity += usedBytes;
       usedBytesCounts.get(volumeIndex).reserve(usedBytes);
@@ -310,7 +310,7 @@ public final class PmemVolumeManager {
     return keyToMappableBlock;
   }
 
-  public void restoreblockKeyToVolume(ExtendedBlockId key, byte volumeIndex) {
+  public void recoverBlockKeyToVolume(ExtendedBlockId key, byte volumeIndex) {
     blockKeyToVolume.put(key, volumeIndex);
   }
 
