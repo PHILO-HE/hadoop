@@ -28,6 +28,7 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicyDefault
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockPlacementPolicyRackFaultTolerant;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.RamDiskReplicaLruTracker;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.ReservedSpaceCalculator;
+import org.apache.hadoop.hdfs.server.namenode.syncservice.DefaultSyncServiceFileFilterImpl;
 import org.apache.hadoop.hdfs.web.URLConnectionFactory;
 import org.apache.hadoop.http.HttpConfig;
 
@@ -98,7 +99,6 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       HdfsClientConfigKeys.DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS;
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_ADDRESS_DEFAULT = "0.0.0.0:50200";
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_RPC_BIND_HOST = "dfs.provided.aliasmap.inmemory.rpc.bind-host";
-
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_LEVELDB_DIR = "dfs.provided.aliasmap.inmemory.leveldb.dir";
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_BATCH_SIZE = "dfs.provided.aliasmap.inmemory.batch-size";
   public static final int DFS_PROVIDED_ALIASMAP_INMEMORY_BATCH_SIZE_DEFAULT = 500;
@@ -106,6 +106,15 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_PROVIDED_ALIASMAP_INMEMORY_ENABLED_DEFAULT = false;
   public static final String DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_LOG = "dfs.provided.aliasmap.inmemory.server.log";
   public static final boolean DFS_PROVIDED_ALIASMAP_INMEMORY_SERVER_LOG_DEFAULT = false;
+  public static final String DFS_PROVIDED_BACKUP_INODEFILTER_KEY = "dfs.provided.backup.inodefilter.class";
+  public static final Class<DefaultSyncServiceFileFilterImpl> DFS_PROVIDED_BACKUP_INODEFILTER_DEFAULT = DefaultSyncServiceFileFilterImpl.class;
+  public static final String DFS_PROVIDED_HEARTBEAT_BACKUP_NUM = "dfs.provided.heartbeat.backup.num";
+  public static final int DFS_PROVIDED_HEARTBEAT_BACKUP_NUM_DEFAULT = 10;
+
+  public static final String DFS_SNAPSHOT_UPDATE_TRACKER = "dfs.provided.update.tracker";
+  public static final String DFS_SNAPSHOT_UPDATE_TRACKER_RETRY_STRATEGY = "dfs.provided.update.tracker.retry.strategy";
+  public static final String DFS_SNAPSHOT_UPDATE_TRACKER_RETRY_STRATEGY_THRESHOLD = "dfs.provided.update.tracker.retry.threshold" ;
+
 
   public static final String  DFS_DATANODE_BALANCE_BANDWIDTHPERSEC_KEY =
       HdfsClientConfigKeys.DeprecatedKeys.DFS_DATANODE_BALANCE_BANDWIDTHPERSEC_KEY;
