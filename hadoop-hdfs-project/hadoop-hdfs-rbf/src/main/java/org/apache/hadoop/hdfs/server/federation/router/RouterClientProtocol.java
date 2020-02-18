@@ -175,6 +175,18 @@ public class RouterClientProtocol implements ClientProtocol {
   }
 
   @Override
+  public void syncCreateToRemoteStore(String src) throws IOException {
+  }
+      
+  @Override
+  public void syncRenameToRemoteStore(String src, String dest) throws IOException {
+  }
+
+  @Override
+  public void syncDeleteToRemoteStore(String src) throws IOException {
+  }
+
+  @Override
   public Token<DelegationTokenIdentifier> getDelegationToken(Text renewer)
       throws IOException {
     rpcServer.checkOperation(NameNode.OperationCategory.WRITE, true);
