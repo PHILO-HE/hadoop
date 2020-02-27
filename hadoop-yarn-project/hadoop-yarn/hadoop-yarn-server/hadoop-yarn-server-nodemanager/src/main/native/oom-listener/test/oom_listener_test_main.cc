@@ -253,11 +253,11 @@ TEST_F(OOMListenerTest, test_oom) {
       ASSERT_EQ(0, kill(mem_hog_pid, SIGKILL));
 
       // Verify that process was killed
-      int* mem_hog_status = {};
-      pid_t exited0 = wait(mem_hog_status);
+      int mem_hog_status;
+      pid_t exited0 = wait(&mem_hog_status);
       ASSERT_EQ(mem_hog_pid, exited0)
         << "Wrong process exited";
-      ASSERT_EQ(NULL, mem_hog_status)
+      ASSERT_EQ(0, mem_hog_status)
         << "Test process killed with invalid status";
 
       if (mock_oom_event_as_user != -1) {
@@ -272,11 +272,11 @@ TEST_F(OOMListenerTest, test_oom) {
                 << "Could not delete cgroup " << GetCGroup();
 
       // Check that oom_listener exited on the deletion of the cgroup
-      int* oom_listener_status = {};
-      pid_t exited1 = wait(oom_listener_status);
+      int oom_listener_status;
+      pid_t exited1 = wait(&oom_listener_status);
       ASSERT_EQ(listener, exited1)
         << "Wrong process exited";
-      ASSERT_EQ(NULL, oom_listener_status)
+      ASSERT_EQ(0, oom_listener_status)
         << "Listener process exited with invalid status";
     }
   }
