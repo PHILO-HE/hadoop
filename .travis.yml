@@ -1,0 +1,59 @@
+language: java
+
+sudo: required
+
+before_install:
+  - wget https://archive.apache.org/dist/maven/maven-3/3.5.0/binaries/apache-maven-3.5.0-bin.zip
+  - unzip -qq apache-maven-3.5.0-bin.zip
+  - export M2_HOME=$PWD/apache-maven-3.5.0
+  - export PATH=$M2_HOME/bin:$PATH
+
+  - sudo apt-get -y install build-essential autoconf automake libtool cmake zlib1g-dev pkg-config libssl-dev libsasl2-dev
+
+  # Optional libs to Hadoop. They will be installed to cover related tests.
+  - sudo apt-get -y install snappy libsnappy-dev
+  - sudo apt-get -y install bzip2 libbz2-dev
+  - sudo apt-get -y install fuse libfuse-dev
+  - sudo apt-get -y install zstd
+
+  - wget https://github.com/google/protobuf/releases/download/v2.5.0/protobuf-2.5.0.tar.gz
+  - tar -xzvf protobuf-2.5.0.tar.gz > tmp.log
+  - pushd protobuf-2.5.0 && ./configure --prefix=/usr && make && sudo make install && popd && rm -rf protobuf-2.5.0
+
+# Will install this version of protobuf when the commit for upgrading is included in the source code.
+#  - wget https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/protobuf-java-3.7.1.tar.gz
+#  - tar -xzvf protobuf-java-3.7.1.tar.gz > tmp.log
+#  - pushd protobuf-3.7.1 && ./configure --prefix=/usr && make && sudo make install && popd && rm -rf protobuf-3.7.1
+
+jdk:
+  - openjdk8
+
+cache:
+  directories:
+    - $HOME/.m2
+
+matrix:
+  include:
+    # Run all tests if MODULE is empty.
+    - env: MODULE=""
+    # Run tests for a module by specifying its artifactId. Multiple modules can also be provided with comma separated.
+    # Since "mvn install" is prior to the module test, there is no need to use "-am" option, which means "also make" to
+    # build the dependent modules and run their tests.
+    - env: MODULE="-pl :hadoop-common"
+    - env: MODULE="-pl :hadoop-hdfs"
+
+#env:
+#  - OPTION="-Pnative -Drequire.fuse -Drequire.openssl -Drequire.snappy -Drequire.zstd"
+
+# The below command will be run by default if install command is not given.
+# mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V
+
+# Make sure the project can be successfully built with unit tests skipped. The built jars can be reused in the below test.
+install:
+  - mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -Pnative
+
+# travis_wait can avoid terminating the job due to no log output after a long time. We can specify the waiting minutes,
+# up to 50min.
+# With it, the build can still hit the maximum time limitation.
+script:
+  - mvn test -DfailIfNoTests=false $MODULE -Pnative
